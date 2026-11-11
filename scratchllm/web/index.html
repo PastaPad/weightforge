@@ -1,0 +1,1530 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Scratch · Local language model</title>
+  <style>
+    :root { color-scheme: dark; --bg: #101313; --panel: #191e1d; --line: #303b37; --text: #edf2ee; --muted: #a0b0a7; --accent: #b9ed97; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 system-ui, sans-serif; }
+    button, input, textarea { font: inherit; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+    a { color: var(--muted); text-decoration: none; } a:hover { color: var(--accent); }
+    header { border-bottom: 1px solid var(--line); }
+    .bar { max-width: 1280px; margin: auto; padding: 22px 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .brand { font-size: 21px; font-weight: 750; letter-spacing: -.8px; }
+    .brand span { color: var(--accent); margin-right: 12px; }
+    .status { font: 12px ui-monospace, monospace; color: var(--muted); display: flex; align-items: center; gap: 9px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+    .online { background: var(--accent); box-shadow: 0 0 12px #b9ed9740; }
+    main { max-width: 1280px; margin: auto; padding: 44px 32px; }
+    .eyebrow { font: 11px ui-monospace, monospace; letter-spacing: 2px; color: var(--accent); text-transform: uppercase; }
+    h1 { font-size: clamp(28px, 4vw, 42px); letter-spacing: -1.6px; margin: 10px 0; line-height: 1.2; }
+    .intro { color: var(--muted); margin: 0 0 32px; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 24px; align-items: start; }
+    .panel { border: 1px solid var(--line); background: var(--panel); border-radius: 14px; overflow: hidden; }
+    .panel-head { padding: 18px 22px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); }
+    h2 { font-size: 14px; font-weight: 600; margin: 0; }
+    .hint { color: var(--muted); font-size: 12px; }
+    textarea { display: block; width: 100%; min-height: 220px; resize: vertical; border: 0; background: transparent; color: var(--text); padding: 22px; line-height: 1.8; }
+    textarea::placeholder { color: #78877e; } textarea:focus { outline-offset: -3px; }
+    .actions { padding: 16px 22px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    button { cursor: pointer; border: 1px solid var(--line); color: var(--text); background: transparent; border-radius: 8px; padding: 8px 13px; font-size: 13px; font-weight: 600; }
+    button:hover { background: #ffffff0b; } button:disabled { cursor: default; opacity: .4; }
+    .primary { background: var(--accent); color: #14200f; border-color: var(--accent); padding: 10px 20px; }
+    .primary:hover { background: #cafaad; }
+    .output { margin-top: 24px; } .tools { display: flex; gap: 8px; }
+    #result { padding: 22px; min-height: 210px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; line-height: 1.9; }
+    #result:empty::before { content: 'Your generated text will appear here.'; color: #78877e; }
+    #result .prompt-text { color: var(--muted); }
+    #metrics { border-top: 1px solid var(--line); padding: 12px 22px; min-height: 44px; color: var(--muted); font: 12px/1.6 ui-monospace, monospace; }
+    .settings { padding: 22px; } .field { margin-top: 24px; }
+    label { display: block; font-size: 13px; margin-bottom: 8px; }
+    input[type=number] { width: 100%; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text); padding: 9px 12px; }
+    .help { font-size: 12px; line-height: 1.6; color: var(--muted); margin: 7px 0 0; }
+    .model { margin-top: 20px; padding: 22px; }
+    .model-path { font: 12px/1.7 ui-monospace, monospace; color: var(--accent); overflow-wrap: anywhere; margin: 7px 0 14px; }
+    dl { margin: 16px 0 0; font-size: 12px; } dl div { display: flex; justify-content: space-between; padding: 6px 0; }
+    dt { color: var(--muted); } dd { margin: 0; font-family: ui-monospace, monospace; }
+    .note { padding: 0 3px; margin-top: 20px; color: var(--muted); font-size: 12px; }
+    #error { color: #ffc1b3; background: #37211f; border: 1px solid #704139; border-radius: 8px; padding: 12px 16px; margin-bottom: 18px; }
+    [hidden] { display: none !important; }
+    footer { margin-top: 30px; display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 12px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+    .tabs [aria-selected=true] { color: var(--accent); border-color: var(--accent); }
+    .work-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    .work-card { padding: 22px; }
+    .work-card h2 { font-size: 17px; margin-bottom: 16px; }
+    .work-card label { margin-top: 14px; }
+    .work-card input:not([type=checkbox]), .work-card select { width: 100%; min-width: 0; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 9px 12px; }
+    .work-card button { margin-top: 16px; }
+    .work-card .checks label { display: inline-flex; align-items: center; gap: 6px; margin: 4px 12px 4px 0; }
+    .fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 14px; }
+    .wide { grid-column: 1 / -1; }
+    details { margin-top: 16px; } summary { cursor: pointer; color: var(--muted); }
+    #job-log { background: var(--bg); padding: 16px; border-radius: 8px; height: 280px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.7 ui-monospace, monospace; }
+    progress { width: 100%; height: 10px; accent-color: var(--accent); }
+    #job-summary, #job-metrics { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+    #job-metrics, #training-plan, #pipeline-detail, #source-report, #corpus-report, #dialogue-report, #finetuning-plan, #workspace-info { white-space: pre-line; }
+    #workspace-controls input:not([type=checkbox]) { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); padding: 8px; border-radius: 7px; }
+    #workspace-details { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.6 ui-monospace, monospace; padding: 16px; }
+    #export-log { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 200px; overflow: auto; font: 12px/1.6 ui-monospace, monospace; }
+    #export-summary { white-space: pre-line; }
+    #hf-status, #hf-repository-info, #hf-plan, #hf-model-info, #hf-job-detail, #custom-report { white-space: pre-line; }
+    #hf-job-log { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 300px; overflow: auto; font: 12px/1.6 ui-monospace, monospace; }
+    #corpus-samples pre { white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.6 ui-monospace, monospace; }
+    #crawl-detail { white-space: pre-wrap; }
+    @media (max-width: 760px) { .work-grid { grid-template-columns: 1fr; } .fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; } main { padding: 28px 18px; } .bar { padding: 18px; } .settings { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; } .settings h2 { grid-column: 1 / -1; } .field { margin-top: 0; } .panel-head, .actions { padding: 16px; } .shortcut { display: none; } }
+  </style>
+</head>
+<body>
+  <header><div class="bar"><div class="brand"><span>▧</span>scratch</div><div class="status" role="status"><span class="dot" id="dot"></span><span id="connection">CONNECTING</span></div></div></header>
+  <main>
+    <div class="eyebrow">Local inference playground</div>
+    <h1>Start with a few words.</h1>
+    <p class="intro">Train local models, import GGUF checkpoints, and adapt them with your own text.</p>
+    <div class="tabs" role="tablist" aria-label="Workspace">
+      <button type="button" role="tab" id="play-tab" aria-selected="true" aria-controls="generate-form">Playground</button>
+      <button type="button" role="tab" id="train-tab" aria-selected="false" aria-controls="training-panel">Data & training</button>
+      <button type="button" role="tab" id="hf-tab" aria-selected="false" aria-controls="huggingface-panel">Hugging Face / GGUF</button>
+    </div>
+    <div id="error" role="alert" hidden></div>
+    <form id="generate-form" class="layout">
+      <section aria-label="Text generation">
+        <div class="panel">
+          <div class="panel-head"><h2><label for="prompt" style="margin:0">Your prompt</label></h2><span class="hint" id="count">0 / 32,000</span></div>
+          <textarea id="prompt" maxlength="32000" placeholder="The history of" spellcheck="false"></textarea>
+          <div class="actions"><button id="clear" type="button">Clear</button><div class="tools"><span class="hint shortcut" style="align-self:center">Ctrl / ⌘ + Enter</span><button class="primary" id="generate" type="submit" disabled>Generate ↗</button></div></div>
+        </div>
+        <div class="panel output" aria-busy="false" id="output-panel">
+          <div class="panel-head"><h2>Completion</h2><div class="tools"><button id="copy" type="button" disabled>Copy</button><button id="download" type="button" disabled>Download</button></div></div>
+          <div id="result" role="region" aria-label="Generated text" aria-live="polite"></div>
+           <div id="metrics" role="status">Ready when you are.</div>
+           <details id="workspace-inspector" hidden><summary>Memory & self-monitoring</summary><pre id="workspace-details"></pre><div class="actions"><button id="feedback-helpful" type="button">Helpful</button><button id="feedback-unhelpful" type="button">Unhelpful</button></div></details>
+        </div>
+      </section>
+      <aside>
+        <div class="panel settings">
+          <h2>Generation settings</h2>
+          <div class="field"><label for="generation-mode">Mode</label><select id="generation-mode"><option value="auto">Automatic from checkpoint</option><option value="completion">Text completion</option><option value="chat">Dialogue chat</option><option value="workspace" id="workspace-option" disabled>Persistent memory chat</option></select><p class="help">Chat keeps conversation history and uses the training format. Clear starts a new conversation.</p></div>
+          <div class="field" id="workspace-controls" hidden>
+            <label for="workspace-session">Memory session</label><input id="workspace-session" maxlength="64" pattern="[A-Za-z0-9_-]{1,64}">
+            <label for="workspace-goal">Current goal</label><input id="workspace-goal" maxlength="2000" placeholder="Optional goal to retain">
+            <label><input id="workspace-review" type="checkbox"> One draft/review cycle</label>
+            <p class="help">Saves exchanges locally and retrieves relevant earlier ones. Review adds a second generation pass. Token probabilities describe the model's predictions; they are not factual confidence.</p>
+            <button type="button" id="workspace-open">Open saved session</button>
+            <button type="button" id="workspace-forget">Forget this session's memory</button>
+            <p class="help" id="workspace-info" role="status"></p>
+          </div>
+          <div class="field"><label for="max_new_tokens">New tokens</label><input id="max_new_tokens" type="number" value="256" min="1" max="1024" step="1" required><p class="help">Maximum completion length.</p></div>
+          <div class="field"><label for="temperature">Temperature</label><input id="temperature" type="number" value="0.7" min="0" max="3" step="0.1" required><p class="help">Higher is more random. Zero is greedy.</p></div>
+          <div class="field"><label for="top_k">Top-k</label><input id="top_k" type="number" value="40" min="0" max="100000" step="1" required><p class="help">Candidate tokens per step. Zero disables filtering.</p></div>
+          <div class="field"><label for="top_p">Top-p</label><input id="top_p" type="number" value="0.9" min="0.01" max="1" step="0.01" required><p class="help">Keep the most likely probability mass. One disables nucleus filtering.</p></div>
+          <div class="field"><label for="repetition_penalty">Repetition penalty</label><input id="repetition_penalty" type="number" value="1.1" min="1" max="2" step="0.05" required><p class="help">Discourage recently generated tokens. One disables it. Generated URLs are removed.</p></div>
+        </div>
+        <div class="panel model"><h2>Currently serving</h2><p class="model-path" id="loaded-checkpoint">Loading checkpoint…</p><span class="hint">Training dataset</span><p class="model-path" id="loaded-dataset">Unknown</p><p class="help" id="selection-state"></p><button type="button" id="switch-model">Switch model</button><dl id="model-info"><div><dt>Status</dt><dd>Loading…</dd></div></dl></div>
+        <p class="note" id="model-mode-note">Reading checkpoint type…</p>
+      </aside>
+    </form>
+    <section id="training-panel" hidden aria-label="Data and training">
+      <p class="intro">Learn from your sites → optionally fine-tune on human dialogue → load your best checkpoint.</p>
+      <div class="work-grid">
+        <form id="pipeline-form" class="panel work-card wide">
+          <h2>Run everything automatically</h2>
+          <p class="help">Choose your sites and settings in sections 01–03 below, then start here. The server collects the selected sites, compiles the corpus into a tokenized dataset, and trains from scratch. You can close this web page while it works; keep the computer and server running.</p>
+          <label><input id="pipeline-auto-paths" type="checkbox" checked> Create fresh corpus, dataset, and run paths automatically</label>
+          <label><input id="pipeline-dialogue" type="checkbox" checked> After base training, prepare human dialogue and fine-tune using sections 04–05</label>
+          <p class="help">Dialogue preparation reuses the base model’s exact vocabulary. Fine-tuning starts from its best weights, with a new optimizer and the shorter dialogue budget. The final dialogue checkpoint is selected only when you load it.</p>
+          <p class="help">With this checked, output names are generated for this job. Otherwise, use the corpus, dataset output, and run paths below. Each stage automatically uses the previous stage's output. Data-pass budgets are calculated from the newly prepared dataset.</p>
+          <p class="help">Training keeps the checkpoint with the best validation score and stops at the selected budget or early-stopping limit. “Perfect” has no measurable stopping threshold. Cloudflare may still require you to complete verification in the crawler window before leaving.</p>
+          <button type="submit" id="start-pipeline" class="primary job-start">Start selected pipeline</button>
+        </form>
+        <form id="crawl-form" class="panel work-card">
+          <h2>01 / Collect text</h2>
+          <div class="checks" id="hosts">
+            <label><input type="checkbox" value="soyjakwiki.org" checked> soyjakwiki.org</label>
+            <label><input type="checkbox" value="jewish.win"> jewish.win</label>
+            <label><input type="checkbox" value="soyjak.st"> soyjak.st</label>
+            <label><input type="checkbox" value="swedishwin.com"> swedishwin.com</label>
+            <label><input type="checkbox" value="wikipedia.org"> Wikipedia (offline Kiwix articles)</label>
+          </div>
+          <p class="help">User-written article/post text only. Wikipedia is read locally from a Kiwix ZIM file. Camoufox collects the other sites; curl_cffi is the soyjakwiki.org fallback. UI, media, attachments, and player controls are excluded from saved text. Complete any website verification in the visible browser.</p>
+          <p class="help">Link addresses, pasted URLs, and numeric post references are removed from saved/training text. Ordinary link labels remain prose; source URLs remain provenance metadata. Wikipedia imports skip redirects, media, utility pages, and interface text.</p>
+          <div id="wikipedia-settings" hidden>
+            <label for="wikipedia-zim">Local Wikipedia ZIM file</label><input id="wikipedia-zim" list="wikipedia-archives" value="data/kiwix/wikipedia_en_top_nopic_2026-09.zim"><datalist id="wikipedia-archives"></datalist>
+            <label for="wikipedia-seed">Archive ordering seed</label><input id="wikipedia-seed" type="number" value="42" min="0" max="4294967295">
+            <label><input id="wikipedia-all" type="checkbox" checked> Process the whole ZIM (ignore the Wikipedia article limit)</label>
+            <p class="help">Whole-ZIM mode scans every archive entry and keeps eligible article text. Turn it off for a limited sample. A repeatable, spread-out order avoids following one topic’s links. Depth, delay, and browser settings apply to websites. Resume keeps the archive, cursor, and seed.</p>
+            <p id="wikipedia-info" class="model-path" role="status"></p>
+            <label><input id="zim-auto-paths" type="checkbox" checked> Create fresh corpus and dataset paths for the whole-ZIM build</label>
+            <p class="help">The button below imports the entire selected ZIM, then fits your tokenizer and writes train/validation data using the vocabulary and split settings in section 02. It finishes when the dataset is ready. With automatic paths off, it uses the corpus and dataset paths below. You can close this page while it runs.</p>
+            <button type="button" id="prepare-zim-dataset" class="primary job-start">Whole ZIM → dataset</button>
+            <button type="button" id="refresh-kiwix">Refresh local archives</button>
+            <details><summary>Download or update a Kiwix archive</summary>
+              <p class="help">The English top-articles nopic archive is a broad subset with full article text. The full English archive is much larger. Choose a workspace-local .zim path above. Stop preserves the partial download; Download again resumes it and verifies SHA-256 before use.</p>
+              <button type="button" id="kiwix-catalog-button">Load current Kiwix catalog</button>
+              <label for="kiwix-catalog">Text-only archives</label><select id="kiwix-catalog"><option value="https://download.kiwix.org/zim/wikipedia/wikipedia_en_top_nopic_2026-09.zim">English top articles · September 2026 · about 2.6 GB</option></select>
+              <label for="kiwix-url">Official archive URL</label><input id="kiwix-url" value="https://download.kiwix.org/zim/wikipedia/wikipedia_en_top_nopic_2026-09.zim">
+              <p id="kiwix-catalog-info" class="help" role="status"></p>
+              <button type="button" id="download-kiwix" class="job-start">Download / resume archive</button>
+            </details>
+          </div>
+          <label for="corpus-output">Corpus file</label><input id="corpus-output" value="data/raw-text-v4.jsonl" required>
+          <div class="fields">
+            <div><label for="crawl-pages">Page / article attempts per source</label><input id="crawl-pages" type="number" value="100" min="1" max="100000" required></div>
+            <div><label for="crawl-depth">Depth</label><input id="crawl-depth" type="number" value="3" min="0" max="20" required></div>
+            <div><label for="crawl-delay">Delay (s)</label><input id="crawl-delay" type="number" value="3" min="0.5" max="300" step="0.5" required></div>
+          </div>
+          <label><input id="ignore-robots" type="checkbox" checked> Ignore robots.txt</label>
+          <label><input id="headed-browser" type="checkbox" checked> Visible browser for Cloudflare verification</label>
+          <label for="challenge-wait">Verification wait (seconds)</label><input id="challenge-wait" type="number" value="180" min="0" max="600" required>
+          <p class="help">Verification wait applies to every selected site, including soyjak.st. The crawler waits for the real page, adopts verified same-site tabs, and shows screenshots while waiting. Each source starts in a fresh tab.</p>
+          <div class="fields">
+            <div><label for="min-article-chars">Minimum article characters</label><input id="min-article-chars" type="number" value="300" min="1" max="100000" required></div>
+            <div><label for="min-post-chars">Minimum post characters</label><input id="min-post-chars" type="number" value="40" min="1" max="100000" required></div>
+          </div>
+          <p class="help">The limit counts website visits or sampled Wikipedia article attempts, including duplicate/short text. Whole-ZIM mode scans the entire archive. Every article/visit is logged. Wikipedia-only collection opens no browser. Website browsers close when collection finishes or you stop the job.</p>
+          <p class="help">Each complete post is saved once across board and thread pages. Truncated previews provide links to full threads. The queue and archive cursor are saved beside the corpus; Resume keeps its sources/settings. Increase the attempt limit to extend the total budget.</p>
+          <button type="submit" class="primary job-start">Collect text</button>
+          <button type="button" id="resume-crawl" class="job-start">Resume collection</button>
+        </form>
+        <form id="prepare-form" class="panel work-card">
+          <h2>02 / Prepare dataset</h2>
+          <label for="prepare-file">Upload your .txt corpus</label><input id="prepare-file" type="file" accept=".txt,text/plain" disabled>
+          <button id="prepare-upload" type="button" class="job-start" data-feature="text_preparation" disabled>Upload .txt and select it</button>
+          <p id="prepare-upload-status" class="model-path" role="status"></p>
+          <label for="prepare-input">Source file path (.jsonl or .txt)</label><input id="prepare-input" list="custom-uploads" value="data/raw-text-v4.jsonl" required>
+          <p class="help">Choose a UTF-8 .txt above (up to 64 MiB), or paste an existing file path inside this workspace, such as data/swinnish_raw_text.jsonl. For files elsewhere on your computer, use the upload control. Inspect and Prepare also upload a selected file automatically.</p>
+          <label for="prepare-output">New dataset directory</label><input id="prepare-output" value="data/prepared-no-links" required>
+          <div class="fields">
+            <div><label for="vocab-size">Vocabulary</label><input id="vocab-size" type="number" value="8192" min="259" max="65536" required></div>
+            <div><label for="val-fraction">Validation fraction</label><input id="val-fraction" type="number" value="0.1" min="0.01" max="0.99" step="0.01" required></div>
+          </div>
+          <div class="fields">
+            <div><label for="prepare-min-chars">Minimum document / article characters</label><input id="prepare-min-chars" type="number" value="300" min="1" max="100000" required></div>
+            <div><label for="prepare-min-post-chars">Minimum post characters</label><input id="prepare-min-post-chars" type="number" value="40" min="1" max="100000" required></div>
+          </div>
+          <button id="prepare-short-text" type="button">Keep short text (set minimums to 1)</button>
+          <p class="help">These are this dataset's own length filters. Plain .txt and JSONL rows with only a text field use the document minimum. Choosing a .txt upload sets both minimums to 1; you can adjust them before preparation. Blank lines separate paragraphs; files without paragraph breaks use one nonempty line per record.</p>
+          <p class="help">Fits a new tokenizer on training documents. Use a fresh dataset directory. Text-only extraction v4 requires a fresh corpus file; older crawler output is rejected because it can contain UI labels and attachment metadata.</p>
+          <p class="help">Existing v4 raw corpora can be prepared again to remove URLs, without recollecting. New training runs require a dataset prepared with this no-links policy; existing checkpoints keep their learned weights.</p>
+          <p class="help">Duplicate text is removed before splitting. Replies from one recorded thread and lines from one paragraph stay together. The validation split targets your requested fraction by text length, using whole groups.</p>
+          <button type="button" id="inspect-corpus" class="job-start">Inspect corpus & sources</button>
+          <p id="corpus-report" class="model-path" role="status"></p>
+          <details id="corpus-samples" hidden><summary>Actual text samples</summary><div id="corpus-sample-list"></div></details>
+          <button type="submit" class="primary job-start">Prepare dataset</button>
+        </form>
+        <form id="train-form" class="panel work-card wide">
+          <h2>03 / Train your model</h2>
+          <button type="button" id="hardware-preset" hidden>Apply GTX 1050 Ti / 4 GB preset</button>
+          <p class="help" id="hardware-preset-info">Checking hardware-preset support…</p>
+          <div class="fields">
+            <div><label for="train-data">Dataset directory</label><input id="train-data" list="prepared-datasets" value="data/prepared-no-links" required><datalist id="prepared-datasets"></datalist></div>
+            <div><label for="train-out">Run directory</label><input id="train-out" value="runs/response" required></div>
+            <div><label for="train-budget-mode">Training budget</label><select id="train-budget-mode" data-config="budget_mode"><option value="updates">Fixed updates</option><option value="passes" selected>Data passes (auto-size updates)</option></select></div>
+            <div><label for="train-steps" id="train-steps-label">Maximum updates</label><input id="train-steps" data-config="steps" type="number" value="2500" min="1" max="10000000" required></div>
+            <div><label for="train-batch">Microbatch size</label><input id="train-batch" data-config="batch_size" type="number" value="2" min="1" max="256" required></div>
+            <div><label for="train-accum">Accumulation</label><input id="train-accum" data-config="accumulation" type="number" value="8" min="1" max="1024" required></div>
+            <div><label for="train-lr">Learning rate</label><input id="train-lr" data-config="learning_rate" type="number" value="0.0003" min="0.000001" max="0.1" step="any" required></div>
+          </div>
+          <p id="dataset-info" class="help" role="status">Reading prepared datasets…</p>
+          <button type="button" id="latest-dataset">Use newest prepared dataset</button>
+          <p class="help">Fixed updates stays at the number you enter. Data passes calculates updates from the selected dataset, microbatch, accumulation, and context. The preview recalculates automatically. Early stopping can finish either budget sooner.</p>
+          <details><summary>Architecture & optimization</summary><div class="fields">
+            <div class="wide" id="modern-controls" hidden><div class="fields">
+              <div><label for="train-architecture">Decoder architecture</label><select id="train-architecture" data-config="architecture" data-modern><option value="gpt">Original GPT</option><option value="modern">Modern · RoPE / RMSNorm / SwiGLU</option></select></div>
+              <div><label for="train-kv-heads">KV heads (modern)</label><input id="train-kv-heads" data-config="kv_heads" data-modern type="number" value="4" min="1" max="64"></div>
+              <div><label for="train-ffn-width">SwiGLU width (modern)</label><input id="train-ffn-width" data-config="ffn_width" data-modern type="number" value="1536" min="16" max="16384"></div>
+              <div><label for="train-rope">RoPE theta</label><input id="train-rope" data-config="rope_theta" data-modern type="number" value="10000" min="1"></div>
+              <div><label for="train-precision">Precision</label><select id="train-precision" data-config="precision" data-modern><option value="auto">Automatic</option><option value="fp32">FP32 (Pascal)</option><option value="fp16">FP16</option><option value="bf16">BF16</option></select></div>
+              <div><label><input id="train-checkpointing" data-config="gradient_checkpointing" data-modern type="checkbox"> Activation checkpointing</label><label><input id="train-foreach" data-config="optimizer_foreach" data-modern type="checkbox"> Batched AdamW (more memory)</label></div>
+            </div></div>
+            <div><label for="train-context">Context tokens</label><input id="train-context" data-config="context" type="number" value="512" min="8" max="4096" required></div>
+            <div><label for="train-width">Hidden width</label><input id="train-width" data-config="width" type="number" value="256" min="16" max="2048" required></div>
+            <div><label for="train-layers">Layers</label><input id="train-layers" data-config="layers" type="number" value="6" min="1" max="48" required></div>
+            <div><label for="train-heads">Heads</label><input id="train-heads" data-config="heads" type="number" value="8" min="1" max="64" required></div>
+            <div><label for="train-warmup">Warmup updates</label><input id="train-warmup" data-config="warmup_steps" type="number" value="200" min="0" required></div>
+            <div><label for="train-eval">Evaluate at most every</label><input id="train-eval" data-config="eval_every" type="number" value="100" min="1" required></div>
+            <div><label for="train-eval-batches">Evaluation batches / split</label><input id="train-eval-batches" data-config="eval_batches" type="number" value="32" min="1" max="1000" required></div>
+            <div><label for="train-dropout">Dropout</label><input id="train-dropout" data-config="dropout" type="number" value="0.1" min="0" max="0.99" step="0.01" required></div>
+            <div><label for="train-min-lr">Minimum learning rate</label><input id="train-min-lr" data-config="min_learning_rate" type="number" value="0.00003" min="0" max="0.1" step="any" required></div>
+            <div><label for="train-decay">Weight decay</label><input id="train-decay" data-config="weight_decay" type="number" value="0.1" min="0" max="1" step="0.01" required></div>
+            <div><label for="train-seed">Seed</label><input id="train-seed" data-config="seed" type="number" value="42" min="0" max="4294967295" required></div>
+          </div></details>
+          <details open><summary>Generalization controls</summary><div class="fields">
+            <div><label for="train-epochs" id="train-epochs-label">Requested data passes</label><input id="train-epochs" data-config="max_epochs" type="number" value="25" min="0" max="10000" step="any" placeholder="Choose passes, e.g. 25" required></div>
+            <div><label for="train-patience">Early-stop patience (checks)</label><input id="train-patience" data-config="early_stopping_patience" type="number" value="6" min="0" max="10000" required></div>
+            <div><label for="train-min-delta">Meaningful NLL improvement</label><input id="train-min-delta" data-config="early_stopping_min_delta" type="number" value="0.01" min="0" max="10" step="any" required></div>
+            <div><label for="train-smoothing">Label smoothing (0 = off)</label><input id="train-smoothing" data-config="label_smoothing" type="number" value="0" min="0" max="0.99" step="0.01" required></div>
+            <div><label for="train-ema">Weight EMA decay (0 = off)</label><input id="train-ema" data-config="ema_decay" type="number" value="0" min="0" max="0.99999" step="any" required></div>
+            <div><label for="train-sampling">Training sampling</label><select id="train-sampling" data-config="sampling"><option value="random">Random with replacement</option><option value="shuffled" selected>Shuffled passes</option></select></div>
+          </div></details>
+          <p class="help">Response-oriented defaults: 512-token context, 6 layers × 256 width, 2 × 8 microbatch/accumulation, shuffled sampling, and up to 25 data passes with validation-based early stopping. This keeps capacity modest for the current small corpus and doubles context. These settings are a starting point, not measured ChatGPT-level quality. Conversational instruction-following needs suitable human question/answer examples; raw articles and board posts teach their own writing styles.</p>
+          <button type="button" id="preview-training">Preview training budget</button>
+          <p id="training-plan" class="model-path" role="status"></p>
+          <p class="help">Start creates random weights. A larger/newly prepared dataset requires Start in a fresh run directory. Resume uses the old run's saved dataset and budget, ignoring edited fields. Stop saves at the next optimizer boundary. Generation pauses during training to free GPU memory. After training, use Load checkpoint below to switch the playground.</p>
+          <button type="submit" class="primary job-start">Start training</button>
+          <button type="button" id="resume-job" class="job-start">Resume run</button>
+        </form>
+        <form id="dialogue-form" class="panel work-card">
+          <h2>04 / Prepare dialogue</h2>
+          <p class="help">Use a base checkpoint trained on Wikipedia and your selected sites. Its exact BPE vocabulary/token IDs are reused; no tokenizer is fitted here. Dialogue downloads contain human-authored text, with URLs removed.</p>
+          <label for="dialogue-base">Your base inference checkpoint (best.pt)</label><input id="dialogue-base" list="export-checkpoints" value="runs/response/best.pt" required>
+          <button type="button" id="dialogue-use-serving">Use currently serving checkpoint</button>
+          <div class="checks" id="dialogue-sources">
+            <label><input type="checkbox" value="oasst1" checked> OpenAssistant OASST1 · English human conversations · Apache-2.0</label>
+            <label><input type="checkbox" value="dolly15k" checked> Dolly 15k · human instructions/responses · CC-BY-SA-3.0</label>
+          </div>
+          <label for="dialogue-input">Custom conversation JSONL (optional)</label><input id="dialogue-input" placeholder="data/swinnish-chat-2026-11-01/train.jsonl">
+          <button type="button" id="dialogue-swinnish">Use Swinnish conversations only</button>
+          <p class="help">Custom JSONL uses alternating user/assistant messages. Whole conversation/family groups stay together; each assistant reply becomes a training example. Only assistant response tokens receive loss. Select a native .pt checkpoint; imported Hugging Face models use their separate workflow.</p>
+          <label for="dialogue-output">New dialogue dataset directory</label><input id="dialogue-output" value="data/prepared-dialogue" required>
+          <label for="dialogue-val">Validation fraction (whole conversations/reference passages)</label><input id="dialogue-val" type="number" value="0.1" min="0.01" max="0.99" step="0.01" required>
+          <p class="help">Pinned exports are cached and checksum-verified. OASST model-generated/deleted/unapproved messages are excluded. Complete assistant responses must fit the base context; longer examples are reported as skipped. Attribution is saved with the dataset.</p>
+          <button type="submit" class="primary job-start">Prepare dialogue dataset</button>
+        </form>
+        <form id="custom-form" class="panel work-card">
+          <h2>04b / Prepare your .txt corpus</h2>
+          <p id="custom-availability" class="help">Checking custom corpus support…</p>
+          <label for="custom-base">Checkpoint to fine-tune (best.pt)</label><input id="custom-base" list="export-checkpoints" value="runs/response/best.pt" required>
+          <button type="button" id="custom-use-serving">Use currently serving checkpoint</button>
+          <label for="custom-file">Upload a corpus from your computer</label><input id="custom-file" type="file" accept=".txt,text/plain">
+          <p class="help">UTF-8 .txt, up to 64 MiB. Select a file above, or choose an uploaded/server-local .txt path below.</p>
+          <label for="custom-input">Saved corpus path</label><input id="custom-input" list="custom-uploads" placeholder="data/custom-uploads/…txt"><datalist id="custom-uploads"></datalist>
+          <button type="button" id="refresh-custom-uploads">Refresh uploaded files</button>
+          <label for="custom-output">New prepared dataset directory</label><input id="custom-output" value="data/prepared-custom-text" required>
+          <label for="custom-val">Validation fraction</label><input id="custom-val" type="number" value="0.1" min="0.01" max="0.99" step="0.01" required>
+          <p class="help">Uses the selected checkpoint's exact tokenizer. URLs and duplicate passages are removed. Paragraphs separated by blank lines stay together in the split; a single text block is divided into non-overlapping token chunks. Preparation only creates a dataset; use section 05 to start fine-tuning.</p>
+          <button type="submit" id="prepare-custom" class="primary job-start" data-feature="custom_corpus" disabled>Upload & prepare .txt</button>
+          <p id="custom-status" class="model-path" role="status"></p>
+        </form>
+        <form id="finetune-form" class="panel work-card">
+          <h2>05 / Fine-tune a checkpoint</h2>
+          <label for="finetune-base">Original checkpoint used to prepare this dataset</label><input id="finetune-base" list="export-checkpoints" value="runs/response/best.pt" required>
+          <label for="finetune-data">Prepared dialogue or custom text dataset</label><input id="finetune-data" list="dialogue-datasets" value="data/prepared-dialogue" required><datalist id="dialogue-datasets"></datalist>
+          <label for="finetune-out">New fine-tuning run directory</label><input id="finetune-out" value="runs/dialogue" required>
+          <div class="fields">
+            <div><label for="finetune-passes">Data passes</label><input id="finetune-passes" type="number" value="3" min="0.01" max="10000" step="any" required></div>
+            <div><label for="finetune-lr">Learning rate</label><input id="finetune-lr" type="number" value="0.00005" min="0.000001" max="0.1" step="any" required></div>
+            <div><label for="finetune-batch">Microbatch</label><input id="finetune-batch" type="number" value="2" min="1" max="256" required></div>
+            <div><label for="finetune-accum">Accumulation</label><input id="finetune-accum" type="number" value="8" min="1" max="1024" required></div>
+          </div>
+          <label id="finetune-memory-controls" hidden><input id="finetune-memory-saving" type="checkbox"> 4 GB settings: activation checkpointing, FP32, lower-memory AdamW</label>
+          <p class="help">Starts from the selected checkpoint, preserving its architecture and vocabulary. Dialogue datasets use assistant-only loss; custom .txt datasets use next-token loss over all corpus text and retain the checkpoint's existing chat format. Plain text fine-tuning learns the text's writing style and content. Best-checkpoint selection uses held-out NLL. Early-stop patience: 3 checks. Resume restores the saved model, optimizer, data, and budget.</p>
+          <p id="finetuning-dataset-info" class="model-path" role="status"></p>
+          <button type="button" id="preview-finetuning">Preview fine-tuning budget</button>
+          <p id="finetuning-plan" class="model-path" role="status"></p>
+          <button type="submit" class="primary job-start">Start fine-tuning</button>
+          <button type="button" id="resume-finetune" class="job-start">Resume fine-tuning run</button>
+        </form>
+        <div class="panel work-card wide">
+          <div class="panel-head" style="padding:0 0 12px"><h2>Job monitor</h2><button id="stop-job" type="button" disabled>Stop job</button></div>
+          <p id="job-summary" role="status">No jobs yet.</p>
+          <p id="pipeline-detail" class="model-path" role="status" hidden></p>
+          <p id="crawl-detail" class="model-path" hidden></p>
+          <p id="source-report" class="model-path" hidden></p>
+          <p id="dialogue-report" class="model-path" hidden></p>
+          <p id="custom-report" class="model-path" hidden></p>
+          <button type="button" id="use-custom-dataset" hidden>Use this dataset for fine-tuning</button>
+          <button type="button" id="resume-saved-crawl" class="job-start" hidden>Resume this saved collection</button>
+          <button type="button" id="resume-dataset" class="job-start" hidden>Resume whole-ZIM dataset</button>
+          <p><a id="browser-snapshot" href="#" target="_blank" rel="noopener" hidden>View last crawler screenshot ↗</a></p>
+          <progress id="job-progress" value="0" max="1" aria-label="Job progress"></progress>
+          <p id="job-metrics"></p>
+          <pre id="job-log" aria-label="Job log">Logs will appear here.</pre>
+          <form id="load-form"><label for="load-checkpoint">Inference checkpoint</label><input id="load-checkpoint" value="runs/web/best.pt" required><button type="button" id="select-job-checkpoint" class="job-start" hidden>Select this job's best checkpoint</button> <button class="primary job-start" type="submit">Load checkpoint into playground</button></form>
+        </div>
+        <form id="export-form" class="panel work-card wide">
+          <h2>06 / Export for llama.cpp</h2>
+          <p class="help" id="export-availability">Checking GGUF export support…</p>
+          <div class="fields">
+            <div><label for="export-checkpoint">Saved inference checkpoint</label><input id="export-checkpoint" list="export-checkpoints" value="runs/response/best.pt" required><datalist id="export-checkpoints"></datalist></div>
+            <div><label for="export-precision">GGUF weight precision</label><select id="export-precision"><option value="f16">F16 · smaller file</option><option value="f32">F32 · full precision</option></select></div>
+            <div><label for="export-output">New GGUF file</label><input id="export-output" value="exports/model-f16.gguf" required></div>
+          </div>
+          <button type="button" id="export-use-serving">Use serving checkpoint</button>
+          <button type="button" id="export-use-selection">Use checkpoint selected above</button>
+          <button type="button" id="export-refresh">Refresh checkpoint list</button>
+          <p class="help">Exports saved weights, the original tokenizer, and the dialogue template when present. Uses a separate CPU worker, so training can continue. Choose best.pt; a running job's saved checkpoint is a snapshot of its best validation step so far. Existing GGUF files are preserved.</p>
+          <p class="help">Modern models export as Llama; original GPT models export as GPT-2 with llama.cpp's approximate GELU. The app's persistent memory and URL cleanup remain runtime features outside the GGUF.</p>
+          <button class="primary" id="start-export" type="submit" disabled>Export GGUF</button>
+          <button id="stop-export" type="button" disabled>Stop export</button>
+          <p id="export-summary" class="model-path" role="status">No export yet.</p>
+          <progress id="export-progress" value="0" max="1" aria-label="GGUF export progress"></progress>
+          <a id="export-download" hidden download>Download GGUF ↗</a>
+          <details><summary>Export log</summary><pre id="export-log"></pre></details>
+        </form>
+      </div>
+    </section>
+    <section id="huggingface-panel" hidden aria-label="Hugging Face import and fine-tuning">
+      <p class="intro">Import a Hugging Face GGUF → collect site text → prepare with its tokenizer → fine-tune LoRA adapters.</p>
+      <p id="hf-status" class="model-path" role="status">Checking Hugging Face support…</p>
+      <div class="work-grid">
+        <form id="hf-import-form" class="panel work-card">
+          <h2>01 / Import a GGUF model</h2>
+          <label for="hf-repo">Hugging Face model repository</label><input id="hf-repo" placeholder="Qwen/Qwen2.5-0.5B-Instruct-GGUF" required>
+          <label for="hf-revision">Revision / branch</label><input id="hf-revision" value="main" required>
+          <button type="button" id="hf-browse" class="hf-available" disabled>List GGUF files</button>
+          <label for="hf-file">GGUF file / complete shard set</label><select id="hf-file" required><option value="">Look up a repository first</option></select>
+          <p id="hf-repository-info" class="model-path" role="status"></p>
+          <label for="hf-import-output">New imported-model directory</label><input id="hf-import-output" value="models/huggingface/imported" required>
+          <label for="hf-import-precision">Reconstructed weight storage</label><select id="hf-import-precision"><option value="f16">F16 · smaller disk footprint</option><option value="f32">F32 · full dequantized precision</option></select>
+          <p class="help">Downloads a pinned revision, verifies file checksums, joins shards when needed, and reconstructs trainable weights/tokenizer. Conversion uses system RAM; it does not recover precision already lost to GGUF quantization. Imports and interrupted downloads can be resumed with the same settings/output.</p>
+          <button type="submit" class="primary job-start" data-feature="huggingface" disabled>Download & import GGUF</button>
+        </form>
+        <div class="panel work-card">
+          <h2>02 / Use the existing site scrapers</h2>
+          <div class="checks" id="hf-hosts">
+            <label><input type="checkbox" value="soyjakwiki.org" checked> soyjakwiki.org</label>
+            <label><input type="checkbox" value="jewish.win"> jewish.win</label>
+            <label><input type="checkbox" value="soyjak.st"> soyjak.st</label>
+            <label><input type="checkbox" value="swedishwin.com"> swedishwin.com</label>
+            <label><input type="checkbox" value="wikipedia.org"> Wikipedia · offline ZIM</label>
+          </div>
+          <p class="help">These are the same collectors and source selections as Data & training: Camoufox, the soyjakwiki.org curl_cffi fallback, and local Kiwix. User-written text only; UI/media and URLs are removed. Collection limits, browser verification, and ZIM settings come from the shared collection form.</p>
+          <label for="hf-corpus">New / resumable collection output</label><input id="hf-corpus" placeholder="data/raw-text-v4.jsonl">
+          <button type="button" id="hf-use-corpus">Use Data & training corpus path</button>
+          <button type="button" id="hf-collection-settings">Collection / ZIM settings</button>
+          <button type="button" id="hf-collect" class="primary job-start" data-feature="huggingface" disabled>Collect selected sites</button>
+          <button type="button" id="hf-resume-crawl" class="job-start" data-feature="huggingface" disabled>Resume this collection</button>
+          <p class="help">Already have scraped text? Select its raw or prepared JSONL file directly in section 03.</p>
+        </div>
+        <form id="hf-prepare-form" class="panel work-card">
+          <h2>03 / Prepare scraper text</h2>
+          <label for="hf-prepare-input">Source JSONL or .txt file</label><input id="hf-prepare-input" list="hf-corpora" placeholder="data/prepared-pipeline-…/train.jsonl" required><datalist id="hf-corpora"></datalist>
+          <button type="button" id="hf-use-collected">Use collection output above</button>
+          <p class="help">Choose an existing raw corpus, train.jsonl, val.jsonl or UTF-8 .txt, or paste its full path inside this workspace. Upload .txt files in Data & training → 02 / Prepare dataset and copy the saved path here. For short custom text, set the document minimum below to 1. Older prepared splits use the extraction version in their adjacent dataset metadata/report. The selected file is cleaned and split again into training/validation text for this run.</p>
+          <label for="hf-model">Imported model</label><input id="hf-model" list="hf-models" required><datalist id="hf-models"></datalist>
+          <button type="button" id="hf-refresh" class="hf-available" disabled>Refresh models, corpora & runs</button>
+          <p id="hf-model-info" class="model-path"></p>
+          <label for="hf-data-output">New prepared dataset directory</label><input id="hf-data-output" value="data/prepared-huggingface" required>
+          <div class="fields">
+            <div><label for="hf-context">Training context</label><input id="hf-context" type="number" value="256" min="8" max="4096" required></div>
+            <div><label for="hf-validation">Validation fraction</label><input id="hf-validation" type="number" value="0.1" min="0.01" max="0.99" step="0.01" required></div>
+            <div><label for="hf-min-chars">Minimum document / article chars</label><input id="hf-min-chars" type="number" value="300" min="1" max="100000" required></div>
+            <div><label for="hf-min-post-chars">Minimum post chars</label><input id="hf-min-post-chars" type="number" value="40" min="1" max="100000" required></div>
+          </div>
+          <p class="help">Uses the imported tokenizer's original IDs. Deduplicates and splits whole threads/articles before tokenization; provenance remains separate from training text. Context 256 is a starting point for the 4 GB GPU. This button only prepares data.</p>
+          <button type="submit" class="primary job-start" data-feature="huggingface" disabled>Prepare for imported model</button>
+        </form>
+        <form id="hf-train-form" class="panel work-card">
+          <h2>04 / Fine-tune the imported model</h2>
+          <label for="hf-train-model">Imported base model</label><input id="hf-train-model" list="hf-models" required>
+          <label for="hf-data">Prepared imported-model dataset</label><input id="hf-data" list="hf-datasets" required><datalist id="hf-datasets"></datalist>
+          <label for="hf-out">New run directory / existing run to resume</label><input id="hf-out" list="hf-runs" value="runs/huggingface" required><datalist id="hf-runs"></datalist>
+          <div class="fields">
+            <div><label for="hf-mode">Fine-tuning mode</label><select id="hf-mode"><option value="qlora">QLoRA · NF4 frozen base</option><option value="lora">LoRA · FP32 frozen base</option></select></div>
+            <div><label for="hf-device">Device</label><select id="hf-device"><option value="cuda">CUDA GPU</option><option value="cpu">CPU</option></select></div>
+            <div><label for="hf-passes">Data passes</label><input id="hf-passes" type="number" value="3" min="0.01" max="1000" step="any" required></div>
+            <div><label for="hf-lr">Learning rate</label><input id="hf-lr" type="number" value="0.0001" min="0.000001" max="0.01" step="any" required></div>
+            <div><label for="hf-batch">Microbatch</label><input id="hf-batch" type="number" value="1" min="1" max="32" required></div>
+            <div><label for="hf-accumulation">Accumulation</label><input id="hf-accumulation" type="number" value="8" min="1" max="256" required></div>
+            <div><label for="hf-rank">LoRA rank</label><input id="hf-rank" type="number" value="8" min="1" max="128" required></div>
+            <div><label for="hf-alpha">LoRA alpha</label><input id="hf-alpha" type="number" value="16" min="1" max="512" required></div>
+            <div><label for="hf-eval">Evaluate every updates</label><input id="hf-eval" type="number" value="100" min="1" max="100000" required></div>
+          </div>
+          <p class="help">Trains adapters on next-token prediction over your site text. The base weights are frozen. FP32 computation and activation checkpointing suit the GTX 1050 Ti; QLoRA reloads the reconstructed base into NF4. Held-out NLL selects the best adapter; early-stop patience is 3 checks. Stop saves at an optimizer boundary; Resume restores the exact data and budget.</p>
+          <button type="button" id="hf-preview" class="hf-available" disabled>Preview budget & memory</button>
+          <p id="hf-plan" class="model-path" role="status"></p>
+          <button type="submit" class="primary job-start" data-feature="huggingface" disabled>Start imported-model fine-tuning</button>
+          <button type="button" id="hf-resume" class="job-start" data-feature="huggingface" disabled>Resume imported-model run</button>
+        </form>
+        <div class="panel work-card wide">
+          <div class="panel-head" style="padding:0 0 12px"><h2>Shared job monitor</h2><button id="hf-stop" type="button" disabled>Stop current job</button></div>
+          <p id="hf-job-summary" role="status">No jobs yet.</p><p id="hf-job-detail" class="model-path"></p>
+          <progress id="hf-progress" value="0" max="1" aria-label="Hugging Face job progress"></progress>
+          <button id="hf-resume-import" type="button" class="job-start" data-feature="huggingface" hidden>Resume this GGUF import</button>
+          <button id="hf-use-job-output" type="button" hidden>Use this result in the next stage</button>
+          <a id="hf-gguf-download" hidden download>Download exported GGUF ↗</a>
+          <pre id="hf-job-log"></pre>
+          <p class="help">Imports, collection, preparation and fine-tuning share the supervised main worker. You can close this tab while a job runs. Starting training is always an explicit action.</p>
+        </div>
+        <form id="hf-merge-form" class="panel work-card wide">
+          <h2>05 / Download adapters or merge a complete model</h2>
+          <label for="hf-result-run">Completed / stopped fine-tuning run</label><input id="hf-result-run" list="hf-runs" required>
+          <a id="hf-adapter-download" hidden download>Download best PEFT adapter + tokenizer ↗</a>
+          <label for="hf-merge-output">New complete Hugging Face model directory</label><input id="hf-merge-output" value="models/huggingface/merged" required>
+          <label for="hf-merge-precision">Merged weight storage</label><select id="hf-merge-precision"><option value="f16">F16</option><option value="f32">F32</option></select>
+          <p class="help">Merge saves a complete Hugging Face model as .safetensors weight files, configuration and tokenizer. Use section 06 below to create a standalone .gguf file for llama.cpp or other GGUF applications. Native .pt checkpoints belong to the separate from-scratch workflow.</p>
+          <button type="submit" class="primary job-start" data-feature="huggingface" disabled>Merge best adapter into full model</button>
+        </form>
+        <form id="hf-export-form" class="panel work-card wide">
+          <h2>06 / Export merged model to GGUF</h2>
+          <label for="hf-export-model">Complete merged / imported model directory</label><input id="hf-export-model" list="hf-models" value="models/huggingface/merged" required>
+          <button id="hf-export-use-merged" type="button">Use merged directory above</button>
+          <label for="hf-export-output">New GGUF file</label><input id="hf-export-output" value="exports/merged-f16.gguf" required>
+          <label for="hf-export-precision">GGUF storage</label><select id="hf-export-precision"><option value="f16">F16</option><option value="f32">F32</option><option value="q8_0">Q8_0 (8-bit)</option></select>
+          <p class="help">CPU-only conversion of the complete fine-tuned weights, tokenizer and chat template. The shared monitor shows progress, Stop and the finished download. Existing files are preserved. F16 is about half the weight-file size of F32; Q8_0 is smaller with additional quantization.</p>
+          <p id="hf-export-status" class="model-path" role="status">Checking GGUF converter…</p>
+          <button type="submit" class="primary job-start" data-feature="huggingface_export" disabled>Export complete model to GGUF</button>
+        </form>
+      </div>
+    </section>
+    <footer><span>Local model · No external frontend services</span><a href="/docs">API documentation ↗</a></footer>
+  </main>
+  <script>
+    const $ = id => document.getElementById(id);
+    let busy = false, output = '', ready = false, modelReady = false, training = false;
+    let chatFormat = null, chatHistory = [], servingCheckpoint = null;
+    let features = {}, hardwarePreset = null, workspaceEpisode = null;
+    let exportPending = false, exportPolling = false, exportActive = false, exportEdited = false, exportOutputEdited = false;
+    let customPending = false, customEdited = false, jobActive = false, savedCustom = null, fineRevision = 0, fineDatasets = [];
+    let prepareUploading = false;
+    let hfCapabilities = null, hfAssets = {models: [], datasets: [], runs: [], corpora: []}, hfCatalog = null, hfJob = null, hfPlanPending = false;
+    const memorySessionId = () => typeof crypto.randomUUID === 'function' ? crypto.randomUUID()
+      : Array.from(crypto.getRandomValues(new Uint8Array(16)), value => value.toString(16).padStart(2, '0')).join('');
+    let datasetEdited = false, datasetRevision = 0, datasetList = [], watchedPreparation = null;
+    const showError = message => { $('error').textContent = message; $('error').hidden = !message; };
+    function setBusy(value) {
+      busy = value;
+      $('generate').disabled = value || !ready || !modelReady || training;
+      $('generate').textContent = value ? 'Generating…' : training ? 'Training / pipeline active' : !modelReady ? 'Load a checkpoint to generate' : 'Generate ↗';
+      $('clear').disabled = value;
+      $('output-panel').setAttribute('aria-busy', String(value));
+      $('copy').disabled = value || !output;
+      $('download').disabled = value || !output;
+      for (const id of ['workspace-open', 'workspace-forget', 'workspace-session', 'generation-mode', 'feedback-helpful', 'feedback-unhelpful']) $(id).disabled = value;
+      $('workspace-session').disabled = value || $('generation-mode').value !== 'workspace';
+    }
+    async function readResponse(response) {
+      let data;
+      try { data = await response.json(); } catch { throw new Error(`Server returned HTTP ${response.status}. Check the server terminal.`); }
+      if (!response.ok) {
+        const detail = Array.isArray(data.detail) ? data.detail.map(e => e.msg).join('; ') : data.detail;
+        throw new Error(detail || `Request failed (HTTP ${response.status}).`);
+      }
+      return data;
+    }
+    async function loadStatus() {
+      try {
+        const data = await readResponse(await fetch('/health'));
+        $('connection').textContent = `ONLINE · ${data.device.toUpperCase()}`;
+        $('dot').classList.add('online');
+        modelReady = Boolean(data.model);
+        $('loaded-checkpoint').textContent = data.checkpoint || 'No native checkpoint loaded';
+        $('loaded-dataset').textContent = data.dataset || (modelReady ? 'Not recorded for this checkpoint' : 'None');
+        if (servingCheckpoint !== data.checkpoint) chatHistory = [];
+        servingCheckpoint = data.checkpoint; chatFormat = data.chat_format;
+        features = data.features || {};
+        $('prepare-file').disabled = !features.text_preparation;
+        if (!features.huggingface) $('hf-status').textContent = 'Hugging Face import is staged. After active jobs finish, restart the service and refresh to enable it.';
+        for (const button of document.querySelectorAll('.hf-available')) button.disabled = !features.huggingface || !hfCapabilities?.ready;
+        if (features.huggingface && !ready) { refreshHfStatus(); refreshHfAssets(); }
+        $('custom-availability').textContent = features.custom_corpus ? 'Upload your own text and prepare it for the selected model.'
+          : 'Custom .txt preparation is staged. After active jobs finish, restart the service and refresh to enable it.';
+        for (const id of ['custom-use-serving', 'refresh-custom-uploads']) $(id).disabled = !features.custom_corpus;
+        $('custom-use-serving').disabled = !features.custom_corpus || !modelReady;
+        $('dialogue-use-serving').disabled = !modelReady;
+        updateJobButtons();
+        if (features.custom_corpus && !ready) {
+          if (!customEdited && modelReady) { $('custom-base').value = data.checkpoint; $('custom-output').value = `data/custom-text-${Date.now()}`; }
+          refreshCustomUploads();
+        }
+        $('export-availability').textContent = features.gguf_export ? 'CPU-only GGUF export is available, including during training.'
+          : 'GGUF export is staged. After the active job finishes, restart the service and refresh to enable these controls. The export CLI is available now.';
+        $('start-export').disabled = !features.gguf_export || exportPending || exportActive;
+        for (const id of ['export-use-serving', 'export-use-selection', 'export-refresh']) $(id).disabled = !features.gguf_export;
+        $('export-use-serving').disabled = !features.gguf_export || !modelReady;
+        if (features.gguf_export && !ready) {
+          if (!exportEdited && modelReady) { $('export-checkpoint').value = data.checkpoint; suggestExportOutput(); }
+          refreshExportCheckpoints(); refreshExport();
+        }
+        $('workspace-option').disabled = !features.memory_workspace;
+        $('modern-controls').hidden = !features.modern_architecture;
+        $('finetune-memory-controls').hidden = !features.modern_architecture;
+        if (features.modern_architecture) {
+          if (!hardwarePreset) loadHardwarePreset();
+        } else {
+          $('hardware-preset-info').textContent = 'The hardware preset is staged for the updated server. After the active job finishes, restart the service to enable it.';
+        }
+        $('model-mode-note').textContent = !modelReady ? `${data.checkpoint_error || 'No native checkpoint selected.'} Load a .pt checkpoint to use the playground. Data preparation and Hugging Face tools are available.` : chatFormat ? 'Dialogue checkpoint: automatic mode uses chat formatting and conversation history. Older full turns are dropped when context fills.' : 'Base checkpoint: automatic mode continues your text. Fine-tune and load a dialogue checkpoint to enable chat.';
+        if (!ready && modelReady) $('load-checkpoint').value = data.checkpoint;
+        $('selection-state').textContent = data.selection_persistent ? 'Selection is remembered after server restarts.' : 'Selection lasts until the server restarts.';
+        const m = data.model;
+        const fields = m ? [['Device', data.device.toUpperCase()], ['Architecture', m.architecture || 'gpt'], ['Context', `${m.context} tokens`], ['Layers', m.layers], ['Width', m.width], ['Heads', m.heads], ...(m.kv_heads ? [['KV heads', m.kv_heads]] : []), ['Vocabulary', m.vocab_size.toLocaleString()]] : [['Status', 'No native checkpoint loaded']];
+        $('model-info').replaceChildren(...fields.map(([key, value]) => {
+          const row = document.createElement('div'), dt = document.createElement('dt'), dd = document.createElement('dd');
+          dt.textContent = key; dd.textContent = value; row.append(dt, dd); return row;
+        }));
+        training = data.training; ready = true; setBusy(busy);
+      } catch (error) {
+        $('connection').textContent = 'OFFLINE'; $('model-info').textContent = 'Model unavailable';
+        showError(`${error.message} Start the server, then reload this page.`);
+      }
+    }
+    $('prompt').addEventListener('input', () => { $('count').textContent = `${$('prompt').value.length.toLocaleString()} / 32,000`; });
+    $('prompt').addEventListener('keydown', event => {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); if (!busy && ready && modelReady) $('generate-form').requestSubmit(); }
+    });
+    $('generate-form').addEventListener('submit', async event => {
+      event.preventDefault(); if (busy || !ready || !modelReady || training) return;
+      showError(''); setBusy(true);
+      const start = performance.now();
+      const request = {prompt: $('prompt').value, max_new_tokens: Number($('max_new_tokens').value), temperature: Number($('temperature').value), top_k: Number($('top_k').value), top_p: Number($('top_p').value), repetition_penalty: Number($('repetition_penalty').value)};
+      const workspace = $('generation-mode').value === 'workspace';
+      const chat = workspace || $('generation-mode').value === 'chat' || ($('generation-mode').value === 'auto' && chatFormat);
+      if (workspace) {
+        request.session_id = $('workspace-session').value;
+        request.goal = $('workspace-goal').value;
+        request.review = $('workspace-review').checked;
+      } else if (chat) request.history = chatHistory;
+      $('metrics').textContent = 'Generating on your model… Output appears when the request completes.';
+      try {
+        const data = await readResponse(await fetch(workspace ? '/workspace/chat' : chat ? '/chat' : '/complete', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(request)}));
+        output = data.text;
+        const prompt = document.createElement('span'); prompt.className = 'prompt-text'; prompt.textContent = request.prompt;
+        const completion = document.createElement('span'); completion.textContent = data.completion;
+        $('result').replaceChildren(prompt, completion);
+        if (chat) {
+          const retained = data.history_messages_used ?? chatHistory.length;
+          chatHistory = [...(retained ? chatHistory.slice(-retained) : []), {role: 'user', content: request.prompt}];
+          if (data.completion) chatHistory.push({role: 'assistant', content: data.completion});
+          output = chatHistory.map(message => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`).join('\n\n');
+          $('result').textContent = output;
+          if (!data.completion) chatHistory.pop();
+          $('prompt').value = ''; $('prompt').dispatchEvent(new Event('input'));
+        }
+        $('metrics').textContent = `${data.generated_tokens} new tokens · ${data.prompt_tokens_used} prompt tokens used · ${((performance.now() - start) / 1000).toFixed(1)}s`;
+        $('workspace-inspector').hidden = !workspace;
+        if (workspace) {
+          workspaceEpisode = data.workspace.episode_id;
+          $('workspace-details').textContent = JSON.stringify({workspace: data.workspace, diagnostics: data.diagnostics}, null, 2);
+          $('workspace-info').textContent = `Session ${data.workspace.session_id} · revision ${data.workspace.revision}\n${data.workspace.memory_ids.length} older memories used · ${data.total_generated_tokens} tokens across all passes`;
+        }
+      } catch (error) { showError(error.message); $('metrics').textContent = 'Generation failed. You can try again.'; }
+      finally { setBusy(false); }
+    });
+    $('clear').addEventListener('click', () => {
+      $('prompt').value = ''; $('prompt').dispatchEvent(new Event('input')); $('result').replaceChildren(); output = '';
+      chatHistory = [];
+      workspaceEpisode = null; $('workspace-inspector').hidden = true;
+      if ($('generation-mode').value === 'workspace') newMemorySession();
+      $('metrics').textContent = 'Ready when you are.'; showError(''); setBusy(false); $('prompt').focus();
+    });
+    $('copy').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(output); $('metrics').textContent = 'Copied to clipboard.'; }
+      catch { showError('Clipboard unavailable. Select the output to copy it, or use Download.'); }
+    });
+    $('download').addEventListener('click', () => {
+      const url = URL.createObjectURL(new Blob([output], {type: 'text/plain;charset=utf-8'}));
+      const a = document.createElement('a'); a.href = url; a.download = 'scratch-completion.txt'; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+    function rememberSession() {
+      try { localStorage.setItem('scratch-memory-session', $('workspace-session').value); } catch {}
+    }
+    function newMemorySession() {
+      $('workspace-session').value = memorySessionId(); $('workspace-goal').value = '';
+      rememberSession(); $('workspace-info').textContent = 'New memory session. Previous sessions stay on disk.';
+    }
+    try { $('workspace-session').value = localStorage.getItem('scratch-memory-session') || memorySessionId(); }
+    catch { $('workspace-session').value = memorySessionId(); }
+    $('workspace-session').addEventListener('change', () => { rememberSession(); workspaceEpisode = null; });
+    $('generation-mode').addEventListener('change', () => {
+      $('workspace-controls').hidden = $('generation-mode').value !== 'workspace';
+      $('workspace-inspector').hidden = true;
+      chatHistory = [];
+      setBusy(busy);
+      if ($('generation-mode').value === 'workspace') openMemory();
+    });
+    async function openMemory() {
+      if (!features.memory_workspace || busy) return;
+      try {
+        const session = $('workspace-session').value;
+        const data = await readResponse(await fetch('/workspace/' + encodeURIComponent(session)));
+        if (busy || session !== $('workspace-session').value || $('generation-mode').value !== 'workspace') return;
+        rememberSession(); $('workspace-goal').value = data.goal;
+        chatHistory = data.recent.flatMap(row => [{role: 'user', content: row.user_text}, {role: 'assistant', content: row.assistant_text}]);
+        output = chatHistory.map(message => `${message.role === 'user' ? 'User' : 'Assistant'}: ${message.content}`).join('\n\n');
+        $('result').textContent = output;
+        workspaceEpisode = data.recent.at(-1)?.id || null;
+        $('workspace-info').textContent = `${data.feedback.total} saved exchanges · ${data.feedback.helpful} helpful · ${data.feedback.unhelpful} unhelpful\nUp to ${data.capacity.toLocaleString()} exchanges retained per session.`;
+        setBusy(false);
+      } catch (error) { showError(error.message); }
+    }
+    $('workspace-open').onclick = openMemory;
+    $('workspace-forget').onclick = async () => {
+      try {
+        await readResponse(await fetch('/workspace/' + encodeURIComponent($('workspace-session').value), {method: 'DELETE'}));
+        workspaceEpisode = null; $('workspace-inspector').hidden = true; await openMemory();
+      } catch (error) { showError(error.message); }
+    };
+    async function feedback(helpful) {
+      if (!workspaceEpisode) return;
+      try {
+        await readResponse(await fetch('/workspace/' + encodeURIComponent($('workspace-session').value) + '/feedback', {
+          method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({episode_id: workspaceEpisode, helpful})}));
+        $('workspace-info').textContent = helpful ? 'Feedback saved.' : 'Feedback saved. This exchange is excluded from future context.';
+      } catch (error) { showError(error.message); }
+    }
+    $('feedback-helpful').onclick = () => feedback(true);
+    $('feedback-unhelpful').onclick = () => feedback(false);
+    async function loadHardwarePreset() {
+      try {
+        const data = await readResponse(await fetch('/architecture/presets'));
+        hardwarePreset = data.presets.find(row => row.id === 'gtx1050ti');
+        $('hardware-preset').hidden = !hardwarePreset;
+        $('hardware-preset-info').textContent = 'GTX 1050 Ti preset: 12 × 512, RoPE, RMSNorm, SwiGLU, 8 query / 4 KV heads, 512 context, microbatch 1 × 16. About 42M parameters with an 8192 vocabulary. Apply fills the form for a future run.';
+      } catch (error) { $('hardware-preset-info').textContent = error.message; }
+    }
+    $('hardware-preset').onclick = () => {
+      if (!hardwarePreset || !features.modern_architecture) return;
+      for (const input of document.querySelectorAll('[data-config]')) {
+        const value = hardwarePreset.settings[input.dataset.config];
+        if (value == null) continue;
+        if (input.type === 'checkbox') input.checked = value; else input.value = value;
+      }
+      $('finetune-batch').value = hardwarePreset.finetune_settings.batch_size;
+      $('finetune-accum').value = hardwarePreset.finetune_settings.accumulation;
+      $('finetune-memory-saving').checked = true;
+      if ($('train-out').value === 'runs/response') $('train-out').value = 'runs/gtx1050ti';
+      $('hardware-preset-info').textContent = '42M hardware preset applied. Vocabulary comes from the selected prepared dataset; 8192 is recommended. Review the budget, then start when ready.';
+      updateBudgetMode(); schedulePreview();
+    };
+    loadStatus();
+    let jobPending = false, lastJobId = null, lastJobStatus = null, statusPending = false, savedCrawl = null, savedDataset = null;
+    function selectTab(tab) {
+      const view = typeof tab === 'boolean' ? (tab ? 'train' : 'play') : tab;
+      for (const [name, panel] of [['play', 'generate-form'], ['train', 'training-panel'], ['hf', 'huggingface-panel']]) {
+        $(panel).hidden = name !== view; $(name + '-tab').setAttribute('aria-selected', String(name === view));
+      }
+    }
+    $('play-tab').onclick = () => selectTab(false);
+    $('train-tab').onclick = () => { selectTab(true); refreshJob(); };
+    $('hf-tab').onclick = () => { selectTab('hf'); refreshJob(); refreshHfStatus(); refreshHfAssets(); };
+    $('switch-model').onclick = () => { selectTab(true); $('load-checkpoint').scrollIntoView({behavior: 'smooth', block: 'center'}); $('load-checkpoint').focus({preventScroll: true}); };
+    function updateJobButtons() {
+      document.querySelectorAll('.job-start').forEach(button => button.disabled = Boolean(jobActive || jobPending || customPending || prepareUploading || (button.dataset.feature && !features[button.dataset.feature]) || (['huggingface', 'huggingface_export'].includes(button.dataset.feature) && !hfCapabilities?.ready) || (button.dataset.feature === 'huggingface_export' && (!features.huggingface || !hfCapabilities?.gguf_export?.ready))));
+    }
+    function displayJob(data) {
+      const job = data.job, active = job && ['running', 'stopping', 'closing'].includes(job.status);
+      jobActive = Boolean(active);
+      training = Boolean(active && ['train', 'finetune', 'pipeline', 'hf-finetune'].includes(job.kind)); setBusy(busy);
+      updateJobButtons();
+      $('stop-job').disabled = !active || job.status === 'stopping' || job.status === 'closing' || jobPending;
+      $('stop-job').textContent = job?.status === 'stopping' ? 'Stopping…' : job?.status === 'closing' ? 'Closing workers…' : job?.kind === 'pipeline' ? 'Stop entire pipeline' : job?.kind === 'dataset' ? 'Stop dataset build' : 'Stop job';
+      displayHfJob(job, active);
+      if (!job) return;
+      const pipeline = ['pipeline', 'dataset'].includes(job.kind) ? (job.pipeline || {}) : null;
+      const pipelineStages = Array.isArray(pipeline?.stages) ? pipeline.stages : [];
+      savedCrawl = job.resumable_crawl || null;
+      savedDataset = job.resumable_dataset ? job.settings : null;
+      $('resume-dataset').hidden = active || !savedDataset;
+      $('resume-saved-crawl').hidden = active || job.kind === 'dataset' || !savedCrawl?.pending;
+      if (savedCrawl?.pending) $('resume-saved-crawl').textContent = `Resume this saved collection (${savedCrawl.pending.toLocaleString()} queued)`;
+      if (['prepare', 'pipeline', 'dataset'].includes(job.kind)) {
+        if (active && job.id !== lastJobId) watchedPreparation = {id: job.id, revision: datasetRevision};
+        const prepared = job.kind === 'prepare' ? job.status === 'succeeded' : job.dataset_ready || pipelineStages.some(stage => stage.kind === 'prepare' && stage.status === 'succeeded');
+        if (watchedPreparation?.id === job.id && (prepared || !active)) {
+          if (prepared) {
+            if (datasetRevision === watchedPreparation.revision) {
+              datasetEdited = true;
+              chooseDataset(job.kind === 'prepare' ? job.output : pipeline.outputs.dataset);
+            }
+            refreshDatasets();
+          }
+          watchedPreparation = null;
+        }
+      }
+      const stageLabel = pipeline?.stage ? ` · stage${pipelineStages.length && pipeline.stage_index ? ` ${pipeline.stage_index}/${pipelineStages.length}` : ''}: ${pipeline.stage}` : '';
+      $('job-summary').textContent = `${job.kind.toUpperCase()} · ${job.status}${stageLabel} · ${job.output} · log: ${job.log_path}`;
+      $('pipeline-detail').hidden = !pipeline;
+      if (pipeline) {
+        const stages = pipelineStages.length ? pipelineStages.map(stage => `${stage.kind}: ${stage.status}`).join(' → ')
+          : active ? 'Waiting for pipeline stage information…' : 'Pipeline stage information unavailable.';
+        const paths = pipeline.outputs;
+        $('pipeline-detail').textContent = `${stages}\n${pipeline.detail || ''}${paths ? `\nCorpus: ${paths.corpus}\nDataset: ${paths.dataset}${paths.run ? '\nRun: ' + paths.run : ''}` : ''}${job.checkpoint && !active ? `\nBest checkpoint: ${job.checkpoint}` : ''}`;
+        if (paths?.dialogue_dataset) $('pipeline-detail').textContent += `\nBase run: ${paths.base_run}\nDialogue dataset: ${paths.dialogue_dataset}`;
+      }
+      $('select-job-checkpoint').hidden = !job.checkpoint || active;
+      $('select-job-checkpoint').dataset.checkpoint = job.checkpoint || '';
+      const log = $('job-log'), atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 40;
+      if (log.textContent !== (job.log || 'Starting…')) {
+        log.textContent = job.log || 'Starting…'; if (atBottom) log.scrollTop = log.scrollHeight;
+      }
+      const matches = [...(job.log || '').matchAll(/step (\d+)\/(\d+)/g)], latest = matches.at(-1);
+      $('job-progress').max = latest ? Number(latest[2]) : 1;
+      $('job-progress').value = latest ? Number(latest[1]) : job.status === 'succeeded' ? 1 : 0;
+      if (pipeline && !latest) {
+        if (pipelineStages.length) {
+          $('job-progress').max = pipelineStages.length;
+          $('job-progress').value = pipelineStages.filter(stage => stage.status === 'succeeded').length;
+        } else if (active) {
+          $('job-progress').removeAttribute('value');
+        }
+      }
+      const metric = job.metrics?.at(-1);
+      $('job-metrics').textContent = metric ? `Step ${metric.step} · ${metric.train_eval_loss != null ? 'train NLL' : 'training batch loss'} ${metric.train_loss.toFixed(4)} · validation ${metric.val_loss.toFixed(4)} · perplexity ${metric.perplexity.toFixed(2)}` : '';
+      if (metric?.train_eval_loss != null) {
+        $('job-metrics').textContent += `\nGap ${metric.generalization_gap.toFixed(4)} · ${metric.epochs.toFixed(2)} ${metric.epoch_unit || 'token'} passes · best ${metric.best_val_loss.toFixed(4)} at step ${metric.best_step} · current weights: ${metric.selected_weights}`;
+        if (metric.ema_val_loss != null) $('job-metrics').textContent += `\nRaw validation ${metric.raw_val_loss.toFixed(4)} · EMA validation ${metric.ema_val_loss.toFixed(4)}`;
+        if (metric.stop_reason) $('job-metrics').textContent += `\nFinished: ${metric.stop_reason.replaceAll('_', ' ')}. Best checkpoint: ${job.output}/${job.kind === 'hf-finetune' ? 'best.json (adapter)' : 'best.pt'}`;
+        $('job-progress').max = metric.planned_steps;
+        $('job-progress').value = latest ? Number(latest[1]) : metric.step;
+      }
+      const progress = ['crawl', 'kiwix'].includes(job.kind) || job.stage === 'crawl' ? job.progress : null;
+      const report = job.corpus_report || pipeline?.corpus_report;
+      $('source-report').hidden = !report && !Object.keys(progress?.sources || {}).length;
+      $('source-report').textContent = report ? corpusSummary(report) : Object.entries(progress?.sources || {}).map(([host, row]) =>
+        `${host}: ${(row.saved || 0).toLocaleString()} new text records · ${(row.characters || 0).toLocaleString()} characters · ${row.attempted || 0} attempts · ${row.failed || 0} errors · ${row.duplicates || 0} duplicate posts/articles skipped`).join('\n');
+      const dialogueReport = job.dialogue_report || pipeline?.dialogue_report;
+      $('dialogue-report').hidden = !dialogueReport;
+      if (dialogueReport) $('dialogue-report').textContent = dialogueSummary(dialogueReport);
+      $('custom-report').hidden = !job.custom_report;
+      if (job.custom_report) $('custom-report').textContent = customSummary(job.custom_report);
+      savedCustom = job.kind === 'custom-corpus' && job.dataset_ready && !active ? job : null;
+      $('use-custom-dataset').hidden = !savedCustom;
+      if (job.kind === 'dialogue' && job.status === 'succeeded' && (lastJobId !== job.id || lastJobStatus !== job.status)) refreshDatasets();
+      if (job.kind === 'custom-corpus') {
+        const p = job.progress || {};
+        $('custom-status').textContent = `${job.status.toUpperCase()} · ${p.detail || 'Starting preparation…'}${p.budget ? `\n${p.completed || 0}/${p.budget} passages` : ''}`;
+        if (active && !p.budget) $('job-progress').removeAttribute('value');
+        else { $('job-progress').max = p.budget || 1; $('job-progress').value = p.completed || 0; }
+        if (job.dataset_ready && (lastJobId !== job.id || lastJobStatus !== job.status)) refreshDatasets();
+      }
+      if (job.kind === 'kiwix' && job.status === 'succeeded' && (lastJobId !== job.id || lastJobStatus !== job.status)) refreshArchives();
+      $('browser-snapshot').hidden = !job.browser_snapshot;
+      if (job.browser_snapshot) $('browser-snapshot').href = `/jobs/browser?job_id=${encodeURIComponent(job.id)}&v=${progress?.screenshot_at || 0}`;
+      $('crawl-detail').hidden = !progress;
+      if (progress) {
+        const age = Math.max(0, Math.floor(Date.now() / 1000 - progress.heartbeat_at));
+        const phase = job.status === 'stopping' ? 'stopping' : job.status === 'closing' ? 'closing workers' : progress.phase.replaceAll('_', ' ');
+        const tabs = (progress.browser_tabs || []).map(tab => `${tab.wiki_ready ? 'Wiki ready' : tab.site_ready ? 'Board ready' : 'Browser tab'}: ${tab.title || '(no title)'} — ${tab.url}`).join('\n');
+        $('crawl-detail').textContent = `${phase.toUpperCase()}${active ? ` · last heartbeat ${age}s ago` : ''}\n${progress.url || ''}\n${progress.detail}${tabs ? '\n' + tabs : ''}`;
+        if (job.kind === 'kiwix') {
+          const verifying = progress.phase === 'verifying_download', bytes = (verifying ? progress.verified_bytes : progress.downloaded_bytes) || 0;
+          $('job-progress').max = progress.total_bytes || 1;
+          $('job-progress').value = bytes;
+          $('job-metrics').textContent = `${verifying ? 'Verifying' : 'Downloaded'} ${(bytes / 1024**3).toFixed(2)} / ${((progress.total_bytes || 0) / 1024**3).toFixed(2)} GiB`;
+        } else {
+          $('job-progress').max = progress.budget || 1;
+          $('job-progress').value = progress.completed || 0;
+          $('job-metrics').textContent = `${progress.completed}/${progress.budget} page/article attempts finished · ${progress.saved} unique text records · ${progress.skipped} skipped pages · ${progress.failed} errors · ${progress.queued} queued\n${progress.blocked_resources || 0} media/attachment requests blocked · ${progress.duplicates || 0} duplicate records skipped${progress.resumed ? ' · resumed saved queue' : ''}`;
+          if (progress.mode === 'kiwix' && progress.archive) $('job-metrics').textContent += `\nOffline Wikipedia · ${(progress.archive_cursor || 0).toLocaleString()}/${progress.archive.entries.toLocaleString()} archive entries examined`;
+          if (progress.wikipedia_all && progress.archive) {
+            $('job-progress').value = progress.completed_units || 0;
+            $('job-metrics').textContent = `Whole ZIM · ${(progress.archive_cursor || 0).toLocaleString()}/${progress.archive.entries.toLocaleString()} entries examined\n${progress.completed} article/page attempts · ${progress.saved} unique text records · ${progress.skipped} skipped · ${progress.failed} errors${progress.resumed ? ' · resumed saved cursor' : ''}`;
+          }
+        }
+      }
+      if (job.checkpoint && job.id === lastJobId && ['running', 'stopping', 'closing'].includes(lastJobStatus) && !active) $('load-checkpoint').value = job.checkpoint;
+      lastJobId = job.id; lastJobStatus = job.status;
+    }
+    async function refreshJob() {
+      if (statusPending) return;
+      statusPending = true;
+      try { displayJob(await readResponse(await fetch('/jobs', {cache: 'no-store', signal: AbortSignal.timeout(8000)}))); }
+      catch (error) { $('job-summary').textContent = `Status unavailable: ${error.message}`; }
+      finally { statusPending = false; }
+    }
+    async function jobRequest(endpoint, payload) {
+      if (jobPending) return;
+      jobPending = true; showError('');
+      if (endpoint === '/jobs/stop') { $('stop-job').disabled = true; $('stop-job').textContent = 'Stopping…'; }
+      document.querySelectorAll('.job-start').forEach(button => button.disabled = true);
+      try {
+        const data = await readResponse(await fetch(endpoint, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)}));
+        if (endpoint === '/model/load') { await loadStatus(); selectTab(false); }
+        else displayJob(data);
+        return data;
+      } catch (error) { showError(error.message); }
+      finally { jobPending = false; await refreshJob(); }
+    }
+    function crawlRequest() {
+      const hosts = [...document.querySelectorAll('#hosts input:checked')].map(input => input.value);
+      if (!hosts.length) throw new Error('Select at least one source.');
+      if (hosts.includes('wikipedia.org') && !$('wikipedia-zim').value.trim()) throw new Error('Select a downloaded Wikipedia ZIM file.');
+      return {hosts, output: $('corpus-output').value, pages_per_site: Number($('crawl-pages').value), depth: Number($('crawl-depth').value), delay: Number($('crawl-delay').value), ignore_robots: $('ignore-robots').checked, headed: $('headed-browser').checked, challenge_wait: Number($('challenge-wait').value), min_chars: Number($('min-article-chars').value), min_post_chars: Number($('min-post-chars').value), wikipedia_zim: $('wikipedia-zim').value.trim(), wikipedia_seed: Number($('wikipedia-seed').value), wikipedia_all: $('wikipedia-all').checked};
+    }
+    function updateWikipedia() { $('wikipedia-settings').hidden = !document.querySelector('#hosts input[value="wikipedia.org"]').checked; }
+    $('hosts').addEventListener('change', updateWikipedia);
+    let archives = [];
+    function archiveSummary() {
+      const item = archives.find(row => row.path === $('wikipedia-zim').value);
+      $('wikipedia-info').textContent = item ? `${item.metadata.Title || item.path} · ${(item.size / 1024**3).toFixed(2)} GiB · ${item.article_entries.toLocaleString()} article entries (includes redirects) · ${item.metadata.Date || ''}` : 'Choose a local archive or download one below. Paths must be inside the workspace.';
+    }
+    async function refreshArchives() {
+      try {
+        const data = await readResponse(await fetch('/wikipedia/archives', {cache: 'no-store'}));
+        archives = data.archives;
+        $('wikipedia-archives').replaceChildren(...archives.map(row => { const option = document.createElement('option'); option.value = row.path; option.label = row.metadata.Title || row.path; return option; }));
+        archiveSummary();
+      } catch (error) { $('wikipedia-info').textContent = `Cannot list archives: ${error.message}`; }
+    }
+    $('refresh-kiwix').onclick = refreshArchives;
+    $('wikipedia-zim').addEventListener('input', archiveSummary);
+    $('kiwix-catalog-button').onclick = async () => {
+      $('kiwix-catalog-info').textContent = 'Reading the Kiwix download catalog…';
+      try {
+        const data = await readResponse(await fetch('/wikipedia/catalog', {signal: AbortSignal.timeout(30000)}));
+        $('kiwix-catalog').replaceChildren(...data.archives.map(row => { const option = document.createElement('option'); option.value = row.url; option.textContent = `${row.name} · ${row.size}`; return option; }));
+        $('kiwix-catalog').value = $('kiwix-url').value;
+        $('kiwix-catalog-info').textContent = 'Select an archive to set its download URL and local path.';
+      } catch (error) { $('kiwix-catalog-info').textContent = error.message; }
+    };
+    $('kiwix-catalog').onchange = () => {
+      if (!$('kiwix-catalog').value) return;
+      $('kiwix-url').value = $('kiwix-catalog').value;
+      $('wikipedia-zim').value = 'data/kiwix/' + new URL($('kiwix-url').value).pathname.split('/').at(-1);
+      archiveSummary();
+    };
+    $('download-kiwix').onclick = () => jobRequest('/jobs/kiwix', {url: $('kiwix-url').value.trim(), output: $('wikipedia-zim').value.trim()});
+    async function buildZimDataset(request) {
+      const data = await jobRequest('/jobs/zim-dataset', request);
+      if (!data?.job) return;
+      const settings = data.job.settings;
+      $('corpus-output').value = settings.crawl.output;
+      selectPreparationSource(settings.crawl.output);
+      $('prepare-output').value = settings.prepare.output;
+      $('wikipedia-all').checked = true;
+      invalidateInspection();
+      $('job-summary').scrollIntoView({behavior: 'smooth', block: 'center'});
+    }
+    $('prepare-zim-dataset').onclick = () => {
+      const auto_paths = $('zim-auto-paths').checked;
+      for (const id of ['wikipedia-zim', 'wikipedia-seed', 'min-article-chars', 'min-post-chars', 'prepare-min-chars', 'prepare-min-post-chars', 'vocab-size', 'val-fraction', ...(auto_paths ? [] : ['corpus-output', 'prepare-output'])]) {
+        if (!$(id).reportValidity()) return;
+      }
+      buildZimDataset({auto_paths, crawl: {hosts: ['wikipedia.org'], wikipedia_all: true, headed: false,
+        wikipedia_zim: $('wikipedia-zim').value.trim(), wikipedia_seed: Number($('wikipedia-seed').value),
+        output: $('corpus-output').value, min_chars: Number($('min-article-chars').value), min_post_chars: Number($('min-post-chars').value)}, prepare: prepareRequest()});
+    };
+    $('resume-dataset').onclick = () => {
+      if (savedDataset) buildZimDataset({...savedDataset, auto_paths: false, crawl: {...savedDataset.crawl, resume: true, wikipedia_all: true}});
+    };
+    function prepareRequest() {
+      return {input: $('prepare-input').value.trim(), output: $('prepare-output').value.trim(), vocab_size: Number($('vocab-size').value), validation_fraction: Number($('val-fraction').value), min_chars: Number($('prepare-min-chars').value), min_post_chars: Number($('prepare-min-post-chars').value)};
+    }
+    function selectPreparationSource(path) {
+      $('prepare-input').value = path; $('prepare-input').required = true;
+      $('prepare-file').value = ''; invalidateInspection();
+    }
+    function keepShortPreparationText() {
+      $('prepare-min-chars').value = 1; $('prepare-min-post-chars').value = 1; invalidateInspection();
+    }
+    $('prepare-short-text').onclick = keepShortPreparationText;
+    $('prepare-file').addEventListener('change', () => {
+      const file = $('prepare-file').files[0];
+      $('prepare-input').required = !file;
+      if (file) { $('prepare-input').value = ''; keepShortPreparationText(); }
+      $('prepare-upload-status').textContent = file ? `Selected ${file.name}. Upload, Inspect or Prepare will save it in the workspace.` : '';
+      invalidateInspection();
+    });
+    $('prepare-input').addEventListener('input', () => {
+      $('prepare-file').value = ''; $('prepare-input').required = true; $('prepare-upload-status').textContent = '';
+    });
+    async function uploadPreparationSource() {
+      const file = $('prepare-file').files[0];
+      if (!file) return;
+      if (!features.text_preparation || prepareUploading) throw new Error('Text upload is not ready. Refresh the page and try again.');
+      if (!file.name.toLowerCase().endsWith('.txt') || !file.size || file.size > 64 * 1024**2) throw new Error('Choose a nonempty UTF-8 .txt file up to 64 MiB.');
+      prepareUploading = true; updateJobButtons();
+      $('prepare-upload-status').textContent = `Uploading ${file.name}…`;
+      try {
+        const uploaded = await readResponse(await fetch('/corpus/upload?filename=' + encodeURIComponent(file.name),
+          {method: 'POST', headers: {'Content-Type': 'application/octet-stream'}, body: file}));
+        $('prepare-upload-status').textContent = `Saved ${uploaded.filename} → ${uploaded.path}`;
+        if ($('prepare-file').files[0] !== file) throw new Error(`Source changed during upload. The uploaded text is saved at ${uploaded.path}.`);
+        selectPreparationSource(uploaded.path);
+        await refreshCustomUploads();
+      } finally { prepareUploading = false; updateJobButtons(); }
+    }
+    $('prepare-upload').onclick = async () => {
+      showError('');
+      try {
+        if (!$('prepare-file').files[0]) throw new Error('Choose a .txt file above first.');
+        await uploadPreparationSource();
+      } catch (error) { $('prepare-upload-status').textContent = error.message; showError(error.message); }
+    };
+    function dialogueRequest() {
+      const sources = [...document.querySelectorAll('#dialogue-sources input:checked')].map(input => input.value);
+      const input = $('dialogue-input').value.trim();
+      if (!sources.length && !input) throw new Error('Select a dialogue dataset or enter a custom conversation JSONL path.');
+      return {checkpoint: $('dialogue-base').value, output: $('dialogue-output').value, sources, ...(input ? {input} : {}), validation_fraction: Number($('dialogue-val').value)};
+    }
+    $('dialogue-swinnish').onclick = () => {
+      $('dialogue-input').value = 'data/swinnish-chat-2026-11-01/train.jsonl';
+      document.querySelectorAll('#dialogue-sources input').forEach(input => input.checked = false);
+      $('dialogue-output').value = `data/dialogue-swinnish-${Date.now()}`;
+    };
+    function finetuneRequest() {
+      const learning_rate = Number($('finetune-lr').value);
+      return {checkpoint: $('finetune-base').value, data: $('finetune-data').value, out: $('finetune-out').value,
+        ...(features.modern_architecture && $('finetune-memory-saving').checked ? {gradient_checkpointing: true, precision: 'fp32', optimizer_foreach: false} : {}),
+        budget_mode: 'passes', max_epochs: Number($('finetune-passes').value), learning_rate, min_learning_rate: learning_rate / 10,
+        batch_size: Number($('finetune-batch').value), accumulation: Number($('finetune-accum').value)};
+    }
+    function dialogueSummary(report) {
+      return `Dialogue · frozen base vocabulary · assistant-only loss\n${report.groups.toLocaleString()} groups · ${report.duplicates_removed.toLocaleString()} duplicates removed · ${report.over_context_removed.toLocaleString()} examples too long\n` +
+        Object.entries(report.sources).map(([name, row]) => `${name}: ${row.documents.train.toLocaleString()} train / ${row.documents.val.toLocaleString()} validation examples · ${row.supervised_tokens.train.toLocaleString()} training target tokens`).join('\n');
+    }
+    function customSummary(report) {
+      return `Custom text · frozen checkpoint vocabulary · all-text next-token loss\n${report.source.filename} · ${report.groups.toLocaleString()} ${report.split_unit} · ${report.duplicates_removed.toLocaleString()} duplicates removed\n${report.documents.train.toLocaleString()} train / ${report.documents.val.toLocaleString()} validation passages · ${report.tokens.train.toLocaleString()} train / ${report.tokens.val.toLocaleString()} validation tokens · URLs removed`;
+    }
+    function fineDatasetInfo() {
+      const row = fineDatasets.find(item => item.path === $('finetune-data').value);
+      $('finetuning-dataset-info').textContent = row?.custom_report ? customSummary(row.custom_report) : row?.dialogue_report ? dialogueSummary(row.dialogue_report) : '';
+    }
+    function selectFineDataset(checkpoint, data, out) {
+      ++fineRevision;
+      $('finetune-base').value = checkpoint; $('finetune-data').value = data;
+      if (out) $('finetune-out').value = out;
+      $('finetuning-plan').textContent = ''; fineDatasetInfo();
+    }
+    $('finetune-form').addEventListener('input', event => {
+      ++fineRevision; $('finetuning-plan').textContent = '';
+      if (event.target.id === 'finetune-data') {
+        const row = fineDatasets.find(item => item.path === event.target.value);
+        if (row?.base_checkpoint) $('finetune-base').value = row.base_checkpoint;
+        fineDatasetInfo();
+      }
+    });
+    $('dialogue-base').addEventListener('input', () => { ++fineRevision; $('finetune-base').value = $('dialogue-base').value; });
+    $('dialogue-use-serving').onclick = () => { if (servingCheckpoint) { ++fineRevision; $('dialogue-base').value = servingCheckpoint; $('finetune-base').value = servingCheckpoint; } };
+    $('custom-use-serving').onclick = () => { if (servingCheckpoint) { customEdited = true; $('custom-base').value = servingCheckpoint; } };
+    $('custom-form').addEventListener('input', () => { customEdited = true; });
+    async function refreshCustomUploads() {
+      if (!features.custom_corpus) return;
+      try {
+        const data = await readResponse(await fetch('/corpus/uploads', {cache: 'no-store'}));
+        $('custom-uploads').replaceChildren(...data.files.map(row => {
+          const option = document.createElement('option'); option.value = row.path;
+          option.label = `${row.filename} · ${(row.bytes / 1024).toFixed(1)} KiB`; return option;
+        }));
+      } catch (error) { $('custom-status').textContent = error.message; }
+    }
+    $('refresh-custom-uploads').onclick = refreshCustomUploads;
+    $('custom-form').onsubmit = async event => {
+      event.preventDefault();
+      if (!features.custom_corpus || customPending || jobPending || jobActive) return;
+      customPending = true; updateJobButtons(); showError('');
+      const revision = fineRevision;
+      const request = {checkpoint: $('custom-base').value.trim(), input: $('custom-input').value.trim(),
+        output: $('custom-output').value.trim(), validation_fraction: Number($('custom-val').value)};
+      try {
+        const file = $('custom-file').files[0];
+        if (file) {
+          if (!file.name.toLowerCase().endsWith('.txt') || file.size > 64 * 1024**2 || !file.size) throw new Error('Choose a nonempty UTF-8 .txt file up to 64 MiB.');
+          $('custom-status').textContent = `Uploading ${file.name}…`;
+          const uploaded = await readResponse(await fetch('/corpus/upload?filename=' + encodeURIComponent(file.name),
+            {method: 'POST', headers: {'Content-Type': 'application/octet-stream'}, body: file}));
+          request.input = uploaded.path; $('custom-input').value = uploaded.path; $('custom-file').value = '';
+          $('custom-status').textContent = `Saved ${uploaded.filename} → ${uploaded.path}`;
+          await refreshCustomUploads();
+        }
+        if (!request.input) throw new Error('Select a .txt file or enter a saved corpus path.');
+        const data = await jobRequest('/jobs/custom-corpus', request);
+        if (data?.job && revision === fineRevision) selectFineDataset(request.checkpoint, data.job.output, `runs/custom-text-${Date.now()}`);
+        if (data?.job) $('job-summary').scrollIntoView({behavior: 'smooth', block: 'center'});
+      } catch (error) { $('custom-status').textContent = error.message; showError(error.message); }
+      finally { customPending = false; updateJobButtons(); }
+    };
+    $('use-custom-dataset').onclick = () => {
+      if (!savedCustom) return;
+      selectFineDataset(savedCustom.settings.checkpoint, savedCustom.output, `runs/custom-text-${Date.now()}`);
+      $('finetune-form').scrollIntoView({behavior: 'smooth', block: 'start'});
+    };
+    $('dialogue-form').onsubmit = event => {
+      event.preventDefault();
+      try { const request = dialogueRequest(); selectFineDataset(request.checkpoint, request.output); jobRequest('/jobs/dialogue', request); }
+      catch (error) { showError(error.message); }
+    };
+    $('preview-finetuning').onclick = async () => {
+      if (!$('finetune-form').reportValidity()) return;
+      const request = finetuneRequest(), key = JSON.stringify(request);
+      $('finetuning-plan').textContent = 'Reading checkpoint and fine-tuning dataset metadata…';
+      try {
+        const plan = await readResponse(await fetch('/finetuning/plan', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: key}));
+        if (key !== JSON.stringify(finetuneRequest())) return;
+        $('finetuning-plan').textContent = `${plan.steps.toLocaleString()} updates · up to ${plan.planned_epochs.toFixed(2)} ${plan.custom_report ? 'token' : 'example'} passes\nBase: ${plan.base_checkpoint}\n${plan.model_config.context} context · ${plan.parameters.toLocaleString()} parameters\n` + (plan.custom_report ? customSummary(plan.custom_report) : dialogueSummary(plan.dialogue_report));
+      } catch (error) { $('finetuning-plan').textContent = error.message; }
+    };
+    $('finetune-form').onsubmit = event => { event.preventDefault(); jobRequest('/jobs/finetune', finetuneRequest()); };
+    $('resume-finetune').onclick = () => jobRequest('/jobs/finetune', {out: $('finetune-out').value, resume: true});
+    function corpusSummary(report) {
+      return `${report.text_policy ? 'URLs removed · ' : ''}${report.accepted_records.toLocaleString()} unique text records · ${report.groups.toLocaleString()} source groups\n${report.duplicates_removed.toLocaleString()} duplicates removed · ${report.too_short_removed.toLocaleString()} too short\n${report.documents.train.toLocaleString()} train / ${report.documents.val.toLocaleString()} validation records · ${(report.validation_character_fraction * 100).toFixed(1)}% validation characters\n` +
+        Object.entries(report.sources).map(([host, source]) => `${host}: ${source.accepted_records.toLocaleString()} records · ${source.characters.toLocaleString()} characters${source.tokens ? ` · ${source.tokens.train.toLocaleString()} train / ${source.tokens.val.toLocaleString()} validation tokens` : ''}${source.accepted_records ? '' : ' · no usable text'}`).join('\n');
+    }
+    let inspectionRevision = 0;
+    $('inspect-corpus').onclick = async () => {
+      if (prepareUploading) return;
+      let revision = ++inspectionRevision;
+      showError('');
+      try {
+        await uploadPreparationSource();
+        revision = ++inspectionRevision;
+        const request = prepareRequest(), key = JSON.stringify(request);
+        $('corpus-report').textContent = 'Reading corpus; no job will be started…';
+        $('corpus-samples').hidden = true;
+        const report = await readResponse(await fetch('/corpus/inspect', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(request), signal: AbortSignal.timeout(30000)}));
+        if (revision !== inspectionRevision || key !== JSON.stringify(prepareRequest())) return;
+        const advice = report.ready ? 'Ready for preparation.' : !report.accepted_records && report.too_short_removed ? 'All text was removed by the length filters. Lower the preparation minimums below; use 1 for short custom text.' : 'Provide at least two distinct texts, threads or articles for a training/validation split.';
+        $('corpus-report').textContent = `${report.input}\n` + corpusSummary(report) + '\n' + advice;
+        $('corpus-sample-list').replaceChildren(...Object.entries(report.sources).flatMap(([host, source]) => source.samples.map(sample => {
+          const pre = document.createElement('pre'); pre.textContent = `${host} · ${sample.url || 'local text'}\n${sample.text}`; return pre;
+        })));
+        $('corpus-samples').hidden = false;
+      } catch (error) { if (revision === inspectionRevision) $('corpus-report').textContent = `Cannot inspect corpus: ${error.message}`; }
+    };
+    function invalidateInspection() {
+      ++inspectionRevision; $('corpus-report').textContent = ''; $('corpus-samples').hidden = true;
+    }
+    $('prepare-form').addEventListener('input', invalidateInspection);
+    async function resumeCollection(output) {
+      const data = await jobRequest('/jobs/crawl', {output, resume: true, pages_per_site: Number($('crawl-pages').value), wikipedia_all: $('wikipedia-all').checked});
+      if (!data?.job) return;
+      const settings = data.job.settings;
+      $('corpus-output').value = output; selectPreparationSource(output);
+      document.querySelectorAll('#hosts input').forEach(input => input.checked = settings.hosts.includes(input.value));
+      for (const [id, key] of [['crawl-pages', 'pages_per_site'], ['crawl-depth', 'depth'], ['crawl-delay', 'delay'], ['challenge-wait', 'challenge_wait'], ['min-article-chars', 'min_chars'], ['min-post-chars', 'min_post_chars']]) $(id).value = settings[key];
+      $('ignore-robots').checked = settings.ignore_robots; $('headed-browser').checked = settings.headed;
+      if (settings.wikipedia_zim) $('wikipedia-zim').value = settings.wikipedia_zim;
+      if (settings.wikipedia_seed != null) $('wikipedia-seed').value = settings.wikipedia_seed;
+      $('wikipedia-all').checked = Boolean(settings.wikipedia_all);
+      updateWikipedia(); archiveSummary();
+      invalidateInspection();
+    }
+    $('resume-crawl').onclick = () => resumeCollection($('corpus-output').value);
+    $('resume-saved-crawl').onclick = () => { if (savedCrawl) resumeCollection(savedCrawl.output); };
+    $('crawl-form').onsubmit = event => {
+      event.preventDefault();
+      selectPreparationSource($('corpus-output').value);
+      invalidateInspection();
+      try { jobRequest('/jobs/crawl', crawlRequest()); } catch (error) { showError(error.message); }
+    };
+    $('prepare-form').onsubmit = async event => {
+      event.preventDefault();
+      if (prepareUploading || jobPending || jobActive) return;
+      showError('');
+      try {
+        await uploadPreparationSource();
+        await jobRequest('/jobs/prepare', prepareRequest());
+      } catch (error) { showError(error.message); }
+    };
+    let planTimer = null, planRevision = 0, manualUpdates = $('train-steps').value, trainingSubmitting = false;
+    function datasetSummary() {
+      const selected = datasetList.find(row => row.path === $('train-data').value);
+      $('dataset-info').textContent = selected ? `${selected.path} · ${selected.documents.train.toLocaleString()} training documents · ${selected.tokens.train.toLocaleString()} training tokens · ${selected.vocab_size.toLocaleString()} vocabulary`
+        : `Dataset: ${$('train-data').value || '(choose a directory)'}. The preview reads its metadata.`;
+      if (selected?.corpus_report) $('dataset-info').textContent += ` · grouped split · ${Object.keys(selected.corpus_report.sources).join(', ')}`;
+    }
+    function chooseDataset(path) {
+      $('train-data').value = path;
+      datasetSummary();
+      schedulePreview();
+    }
+    async function refreshDatasets(initialize = false) {
+      try {
+        const data = await readResponse(await fetch('/datasets', {cache: 'no-store'}));
+        datasetList = data.datasets;
+        fineDatasets = data.finetuning_datasets || data.dialogue_datasets || [];
+        $('dialogue-datasets').replaceChildren(...fineDatasets.map(row => {
+          const option = document.createElement('option'); option.value = row.path;
+          option.label = row.custom_report ? 'Custom .txt · all-text loss' : 'Human dialogue · assistant-only loss'; return option;
+        }));
+        fineDatasetInfo();
+        $('prepared-datasets').replaceChildren(...datasetList.map(row => {
+          const option = document.createElement('option'); option.value = row.path;
+          option.label = `${row.documents.train.toLocaleString()} docs / ${row.tokens.train.toLocaleString()} train tokens`; return option;
+        }));
+        if (initialize && !datasetEdited && data.latest) chooseDataset(data.latest);
+        else datasetSummary();
+        return data;
+      } catch (error) { $('dataset-info').textContent = `Cannot list datasets: ${error.message}`; return null; }
+    }
+    $('latest-dataset').onclick = async () => {
+      // Mark the user's selection before fetching, so initialization cannot overwrite it.
+      datasetEdited = true;
+      const revision = ++datasetRevision, data = await refreshDatasets();
+      if (data?.latest && revision === datasetRevision) chooseDataset(data.latest);
+    };
+    function updateBudgetMode() {
+      const passes = $('train-budget-mode').value === 'passes', steps = $('train-steps');
+      if (passes && !steps.readOnly) { manualUpdates = steps.value; steps.value = ''; }
+      if (!passes && steps.readOnly) steps.value = manualUpdates;
+      steps.readOnly = passes; steps.required = !passes;
+      steps.placeholder = passes ? 'Calculated from data' : '';
+      $('train-steps-label').textContent = passes ? 'Calculated maximum updates' : 'Maximum updates';
+      $('train-epochs-label').textContent = passes ? 'Requested data passes' : 'Optional pass cap (0 = off)';
+      $('train-epochs').min = passes ? '0.001' : '0';
+      if (passes && Number($('train-epochs').value) === 0) $('train-epochs').value = '';
+      if (!passes && !$('train-epochs').value) $('train-epochs').value = '0';
+    }
+    function trainingRequest() {
+      const fields = [...document.querySelectorAll('[data-config]')].filter(input => !input.hasAttribute('data-modern') || features.modern_architecture);
+      const config = {...Object.fromEntries(fields.map(input => [input.dataset.config, input.type === 'checkbox' ? input.checked : input.tagName === 'SELECT' ? input.value : Number(input.value)])), data: $('train-data').value, out: $('train-out').value};
+      if (config.architecture !== 'modern') { delete config.kv_heads; delete config.ffn_width; delete config.rope_theta; }
+      if (config.budget_mode === 'passes') config.steps = Math.max(1, config.steps || 1);
+      return config;
+    }
+    function planKey(config) {
+      const key = {...config}; delete key.out;
+      if (key.budget_mode === 'passes') delete key.steps;
+      return JSON.stringify(key);
+    }
+    function schedulePreview() {
+      clearTimeout(planTimer); ++planRevision;
+      if ($('train-budget-mode').value === 'passes') $('train-steps').value = '';
+      $('training-plan').textContent = 'Budget changed; recalculating…';
+      planTimer = setTimeout(() => previewTraining(), 300);
+    }
+    async function previewTraining(report = false) {
+      clearTimeout(planTimer);
+      const revision = ++planRevision;
+      if (!(report ? $('train-form').reportValidity() : $('train-form').checkValidity())) {
+        $('training-plan').textContent = 'Fill in the budget fields to calculate updates. Data-pass mode needs a positive number of passes.';
+        return null;
+      }
+      const config = trainingRequest(), key = planKey(config);
+      if (report) showError('');
+      $('training-plan').textContent = `Reading dataset metadata: ${config.data}…`;
+      try {
+        const plan = await readResponse(await fetch('/training/plan', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(config), signal: AbortSignal.timeout(8000)}));
+        if (revision !== planRevision || key !== planKey(trainingRequest())) return null;
+        if (plan.budget_mode === 'passes') $('train-steps').value = String(plan.steps);
+        const reason = plan.limit_reason === 'data_passes' ? `${plan.max_epochs} requested passes; auto-sized from data`
+          : plan.limit_reason === 'pass_cap' ? `pass cap reduced the fixed ${plan.requested_steps.toLocaleString()} update limit`
+          : `fixed update limit; changing data changes passes, not updates`;
+        $('training-plan').textContent = `${plan.data}\n${plan.train_tokens.toLocaleString()} training tokens · ${plan.train_documents} train / ${plan.validation_documents} validation documents · ${plan.parameters.toLocaleString()} parameters\n${plan.steps.toLocaleString()} planned updates · ${reason}\n${plan.tokens_per_step.toLocaleString()} maximum tokens/update · up to ${plan.planned_epochs.toFixed(2)} token passes · warmup ${plan.warmup_steps}\nEvaluate every ${plan.eval_every} updates · ${plan.full_validation ? 'full validation stream' : 'fixed validation subset'}. Early stopping may finish sooner. Preview only; no job started.`;
+        if (plan.corpus_report) $('training-plan').textContent += '\n\n' + corpusSummary(plan.corpus_report);
+        if (plan.model_config?.architecture === 'modern') $('training-plan').textContent += `\nModern decoder · ${plan.model_config.heads} query / ${plan.model_config.kv_heads} KV heads · SwiGLU ${plan.model_config.ffn_width} · ${plan.precision} · activation checkpointing ${plan.gradient_checkpointing ? 'on' : 'off'}`;
+        if (!plan.links_removed) $('training-plan').textContent += '\nThis dataset predates URL removal. Prepare its raw corpus into a fresh dataset before starting a new run.';
+        return plan;
+      } catch (error) {
+        if (revision === planRevision) {
+          $('training-plan').textContent = `Cannot calculate budget: ${error.message}`;
+          if (report) showError(error.message);
+        }
+        return null;
+      }
+    }
+    $('preview-training').onclick = () => previewTraining(true);
+    $('train-form').addEventListener('input', event => {
+      if (event.target.id === 'train-data') { datasetEdited = true; ++datasetRevision; datasetSummary(); }
+      if (event.target.id === 'train-steps' && !$('train-steps').readOnly) manualUpdates = $('train-steps').value;
+      if (event.target.id === 'train-budget-mode') updateBudgetMode();
+      schedulePreview();
+    });
+    $('train-budget-mode').addEventListener('change', () => { updateBudgetMode(); schedulePreview(); });
+    $('train-form').onsubmit = async event => {
+      event.preventDefault();
+      if (trainingSubmitting || jobPending) return;
+      trainingSubmitting = true;
+      try {
+        const plan = await previewTraining(true);
+        if (!plan) return;
+        const config = trainingRequest();
+        if (config.budget_mode === 'passes') config.steps = plan.steps;
+        await jobRequest('/jobs/train', config);
+      } finally { trainingSubmitting = false; }
+    };
+    $('resume-job').onclick = () => jobRequest('/jobs/train', {out: $('train-out').value, resume: true});
+    $('pipeline-form').onsubmit = async event => {
+      event.preventDefault();
+      if (jobPending || trainingSubmitting) return;
+      const auto_paths = $('pipeline-auto-paths').checked;
+      // Linked inputs and generated paths need not name an existing dataset yet.
+      const withDialogue = $('pipeline-dialogue').checked;
+      const ignored = new Set(['prepare-input', 'train-data', 'dialogue-base', 'finetune-base', 'finetune-data', ...(auto_paths ? ['corpus-output', 'prepare-output', 'train-out', 'dialogue-output', 'finetune-out'] : [])]);
+      for (const form of ['crawl-form', 'prepare-form', 'train-form', ...(withDialogue ? ['dialogue-form', 'finetune-form'] : [])]) {
+        for (const input of $(form).elements) {
+          if (!ignored.has(input.id) && !input.checkValidity()) {
+            const details = input.closest('details'); if (details) details.open = true;
+            input.reportValidity(); return;
+          }
+        }
+      }
+      try {
+        const data = await jobRequest('/jobs/pipeline', {crawl: crawlRequest(), prepare: prepareRequest(), train: trainingRequest(), auto_paths,
+          ...(withDialogue ? {dialogue: dialogueRequest(), finetune: finetuneRequest()} : {})});
+        if (data?.job) {
+          const settings = data.job.settings;
+          $('corpus-output').value = settings.crawl.output;
+          selectPreparationSource(settings.crawl.output);
+          $('prepare-output').value = settings.prepare.output;
+          $('train-out').value = settings.train.out;
+          if (settings.dialogue) {
+            $('dialogue-base').value = settings.dialogue.checkpoint;
+            $('finetune-base').value = settings.dialogue.checkpoint;
+            $('dialogue-output').value = settings.dialogue.output;
+            $('finetune-data').value = settings.dialogue.output;
+            $('finetune-out').value = settings.finetune.out;
+          }
+          invalidateInspection();
+          $('job-summary').scrollIntoView({behavior: 'smooth', block: 'center'});
+        }
+      } catch (error) { showError(error.message); }
+    };
+    $('stop-job').onclick = () => jobRequest('/jobs/stop', {});
+    $('select-job-checkpoint').onclick = () => { $('load-checkpoint').value = $('select-job-checkpoint').dataset.checkpoint; $('load-checkpoint').focus(); };
+    $('load-form').onsubmit = event => { event.preventDefault(); jobRequest('/model/load', {checkpoint: $('load-checkpoint').value}); };
+    function suggestExportOutput() {
+      if (exportOutputEdited) return;
+      const parts = $('export-checkpoint').value.split('/').filter(Boolean);
+      const name = parts.slice(-2).join('-').replace(/\.pt$/, '').replace(/[^A-Za-z0-9_-]/g, '_');
+      $('export-output').value = `exports/${name || 'model'}-${$('export-precision').value}-${Date.now()}.gguf`;
+    }
+    $('export-form').addEventListener('input', event => {
+      exportEdited = true;
+      if (event.target.id === 'export-output') exportOutputEdited = true;
+      else if (['export-checkpoint', 'export-precision'].includes(event.target.id)) suggestExportOutput();
+    });
+    function selectExportCheckpoint(path) {
+      if (!path) return;
+      exportEdited = true; $('export-checkpoint').value = path; suggestExportOutput();
+    }
+    $('export-use-serving').onclick = () => selectExportCheckpoint(servingCheckpoint);
+    $('export-use-selection').onclick = () => selectExportCheckpoint($('load-checkpoint').value);
+    async function refreshExportCheckpoints() {
+      if (!features.gguf_export) return;
+      try {
+        const data = await readResponse(await fetch('/exports/checkpoints', {cache: 'no-store'}));
+        $('export-checkpoints').replaceChildren(...data.checkpoints.map(row => {
+          const option = document.createElement('option'); option.value = row.path;
+          option.label = `${(row.bytes / 1024**2).toFixed(1)} MiB`; return option;
+        }));
+      } catch (error) { $('export-summary').textContent = error.message; }
+    }
+    $('export-refresh').onclick = refreshExportCheckpoints;
+    function displayExport(data) {
+      const job = data.job;
+      exportActive = Boolean(job && ['running', 'stopping', 'closing'].includes(job.status));
+      $('start-export').disabled = !features.gguf_export || exportPending || exportActive;
+      $('stop-export').disabled = !exportActive || exportPending || job?.status !== 'running';
+      $('stop-export').textContent = job?.status === 'stopping' ? 'Stopping export…' : 'Stop export';
+      $('export-download').hidden = !job?.export_ready || exportActive;
+      if (!job) return;
+      if (!exportEdited && job.settings) {
+        $('export-checkpoint').value = job.settings.checkpoint;
+        $('export-precision').value = job.settings.precision;
+        $('export-output').value = job.settings.output;
+      }
+      const p = job.progress || {};
+      $('export-summary').textContent = `${job.status.toUpperCase()} · ${job.output}\n${p.detail || 'Starting CPU exporter…'}`;
+      if (p.budget) $('export-summary').textContent += `\n${p.completed || 0}/${p.budget} tensors · ${p.architecture} / ${p.precision}`;
+      if (p.checkpoint_step != null) $('export-summary').textContent += ` · saved step ${p.checkpoint_step}`;
+      if (p.bytes) $('export-summary').textContent += `\n${(p.bytes / 1024**2).toFixed(1)} MiB · SHA-256 ${p.sha256}`;
+      if (p.compatibility_note) $('export-summary').textContent += '\n' + p.compatibility_note;
+      $('export-progress').max = p.budget || 1;
+      if (exportActive && !p.budget) $('export-progress').removeAttribute('value');
+      else $('export-progress').value = p.completed || (job.export_ready ? 1 : 0);
+      $('export-log').textContent = job.log || '';
+      if (job.export_ready) $('export-download').href = '/exports/file?job_id=' + encodeURIComponent(job.id);
+    }
+    async function refreshExport() {
+      if (!features.gguf_export || exportPolling) return;
+      exportPolling = true;
+      try { displayExport(await readResponse(await fetch('/exports', {cache: 'no-store', signal: AbortSignal.timeout(8000)}))); }
+      catch (error) { $('export-summary').textContent = `Export status unavailable: ${error.message}`; }
+      finally { exportPolling = false; }
+    }
+    async function exportRequest(endpoint, payload) {
+      if (!features.gguf_export || exportPending) return;
+      exportPending = true; $('start-export').disabled = true; $('stop-export').disabled = true; showError('');
+      try {
+        const data = await readResponse(await fetch(endpoint, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)}));
+        displayExport(data);
+      } catch (error) { showError(error.message); }
+      finally { exportPending = false; await refreshExport(); }
+    }
+    $('export-form').onsubmit = event => {
+      event.preventDefault(); exportEdited = true;
+      exportRequest('/exports', {checkpoint: $('export-checkpoint').value.trim(), output: $('export-output').value.trim(), precision: $('export-precision').value});
+    };
+    $('stop-export').onclick = () => exportRequest('/exports/stop', {});
+    function hfBytes(value) { return `${((value || 0) / 1024**3).toFixed(2)} GiB`; }
+    function hfModelInfo() {
+      const row = hfAssets.models.find(row => row.path === $('hf-model').value), m = row?.info.model;
+      $('hf-model-info').textContent = m ? `${m.architecture} · ${m.parameters.toLocaleString()} parameters · ${m.vocabulary.toLocaleString()} original token IDs · ${m.context.toLocaleString()} maximum context\n${row.info.source.repo} @ ${row.info.source.revision}` : 'Choose a completed imported model.';
+    }
+    async function refreshHfStatus() {
+      if (!features.huggingface) return;
+      try {
+        hfCapabilities = await readResponse(await fetch('/huggingface/status', {cache: 'no-store'}));
+        const c = hfCapabilities;
+        $('hf-status').textContent = c.ready ? `${c.gpu || 'CPU'} · ${hfBytes(c.vram_bytes)} VRAM · ${hfBytes(c.ram_available)} RAM available · ${hfBytes(c.disk_free)} free disk\nSupported GGUF architectures: ${c.architectures.join(', ')}. Start with a small text model (around 0.5B parameters on this GPU).`
+          : `Install the Hugging Face dependencies, then refresh: ${c.install}`;
+        $('hf-export-status').textContent = c.gguf_export?.ready ? 'llama.cpp GGUF converter ready. Select a complete model directory and a fresh output file.'
+          : `GGUF converter setup required; see HUGGINGFACE.md. ${(c.gguf_export?.missing || []).join(', ')}`;
+      } catch (error) { hfCapabilities = null; $('hf-status').textContent = error.message; }
+      for (const button of document.querySelectorAll('.hf-available')) button.disabled = !hfCapabilities?.ready;
+      updateJobButtons();
+    }
+    async function refreshHfAssets() {
+      if (!features.huggingface) return;
+      try {
+        hfAssets = await readResponse(await fetch('/huggingface/assets', {cache: 'no-store'}));
+        for (const [id, key] of [['hf-models', 'models'], ['hf-datasets', 'datasets'], ['hf-runs', 'runs'], ['hf-corpora', 'corpora']]) {
+          $(id).replaceChildren(...hfAssets[key].map(row => {
+            const option = document.createElement('option'); option.value = row.path;
+            option.label = key === 'models' ? `${row.info.model.architecture} · ${row.info.model.parameters.toLocaleString()} parameters`
+              : key === 'datasets' ? `${row.info.tokens.train.toLocaleString()} train tokens · ${row.info.context} context`
+              : key === 'corpora' ? `${row.kind === 'prepared_split' ? 'Prepared ' + row.split + ' text' : 'Scraper corpus'} · ${(row.bytes / 1024**2).toFixed(1)} MiB` : row.path;
+            return option;
+          }));
+        }
+        hfModelInfo(); hfDownloadLink();
+      } catch (error) { $('hf-model-info').textContent = error.message; }
+    }
+    $('hf-refresh').onclick = () => { refreshHfStatus(); refreshHfAssets(); };
+    $('hf-browse').onclick = async () => {
+      const repo = $('hf-repo').value.trim(), revision = $('hf-revision').value.trim();
+      if (!repo || !revision) return;
+      $('hf-browse').disabled = true; $('hf-repository-info').textContent = 'Listing repository files…';
+      hfCatalog = null; $('hf-file').replaceChildren();
+      try {
+        const data = await readResponse(await fetch('/huggingface/repository', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({repo, revision}), signal: AbortSignal.timeout(45000)}));
+        if (repo !== $('hf-repo').value.trim() || revision !== $('hf-revision').value.trim()) return;
+        hfCatalog = {...data, requestedRepo: repo, requestedRevision: revision};
+        $('hf-file').replaceChildren(...data.files.map(row => {
+          const option = document.createElement('option'); option.value = row.filename;
+          option.textContent = `${row.filename} · ${hfBytes(row.bytes)}${row.parts.length > 1 ? ` · ${row.parts.length} shards` : ''}`; return option;
+        }));
+        $('hf-repository-info').textContent = `${data.files.length} GGUF choices · pinned revision ${data.revision}${data.license ? '\nLicense: ' + data.license : ''}\nChoose a text-model GGUF; adapter-only or vision-projector files cannot be imported as complete language models.`;
+      } catch (error) { $('hf-repository-info').textContent = error.message; }
+      finally { $('hf-browse').disabled = !hfCapabilities?.ready; }
+    };
+    for (const id of ['hf-repo', 'hf-revision']) $(id).addEventListener('input', () => {
+      hfCatalog = null; $('hf-file').replaceChildren(); $('hf-repository-info').textContent = 'List files for this repository/revision.';
+    });
+    $('hf-import-form').onsubmit = event => {
+      event.preventDefault();
+      if (!hfCatalog || hfCatalog.requestedRepo !== $('hf-repo').value.trim() || hfCatalog.requestedRevision !== $('hf-revision').value.trim()) return;
+      jobRequest('/jobs/hf-import', {repo: hfCatalog.repo, revision: hfCatalog.revision, filename: $('hf-file').value,
+        output: $('hf-import-output').value.trim(), precision: $('hf-import-precision').value});
+    };
+    function syncHfHosts(source, target) {
+      const selected = [...document.querySelectorAll(`#${source} input:checked`)].map(input => input.value);
+      document.querySelectorAll(`#${target} input`).forEach(input => input.checked = selected.includes(input.value));
+      updateWikipedia();
+    }
+    $('hf-hosts').addEventListener('change', () => syncHfHosts('hf-hosts', 'hosts'));
+    $('hosts').addEventListener('change', () => syncHfHosts('hosts', 'hf-hosts'));
+    $('hf-corpus').value = $('prepare-input').value;
+    $('hf-use-corpus').onclick = () => { $('hf-corpus').value = $('prepare-input').value; syncHfHosts('hosts', 'hf-hosts'); };
+    $('hf-use-collected').onclick = () => { $('hf-prepare-input').value = $('hf-corpus').value; };
+    $('hf-collection-settings').onclick = () => { selectTab('train'); $('crawl-form').scrollIntoView({behavior: 'smooth'}); };
+    $('hf-collect').onclick = () => {
+      try {
+        if (!$('hf-corpus').value.trim()) throw new Error('Choose a corpus output path.');
+        syncHfHosts('hf-hosts', 'hosts');
+        const request = {...crawlRequest(), output: $('hf-corpus').value.trim()};
+        $('corpus-output').value = request.output; selectPreparationSource(request.output);
+        invalidateInspection(); jobRequest('/jobs/crawl', request);
+      } catch (error) { showError(error.message); }
+    };
+    $('hf-resume-crawl').onclick = async () => { await resumeCollection($('hf-corpus').value.trim()); syncHfHosts('hosts', 'hf-hosts'); };
+    $('hf-model').addEventListener('input', hfModelInfo);
+    $('hf-prepare-form').onsubmit = event => {
+      event.preventDefault();
+      jobRequest('/jobs/hf-prepare', {model: $('hf-model').value.trim(), input: $('hf-prepare-input').value.trim(),
+        output: $('hf-data-output').value.trim(), context: Number($('hf-context').value), validation_fraction: Number($('hf-validation').value),
+        min_chars: Number($('hf-min-chars').value), min_post_chars: Number($('hf-min-post-chars').value)});
+    };
+    function hfTrainRequest() {
+      const learning_rate = Number($('hf-lr').value);
+      return {model: $('hf-train-model').value.trim(), data: $('hf-data').value.trim(), out: $('hf-out').value.trim(),
+        mode: $('hf-mode').value, device: $('hf-device').value, rank: Number($('hf-rank').value), alpha: Number($('hf-alpha').value),
+        max_epochs: Number($('hf-passes').value), learning_rate, min_learning_rate: learning_rate / 10,
+        batch_size: Number($('hf-batch').value), accumulation: Number($('hf-accumulation').value), eval_every: Number($('hf-eval').value)};
+    }
+    $('hf-train-form').addEventListener('input', () => { $('hf-plan').textContent = 'Settings changed; preview the new budget.'; });
+    async function previewHfTraining() {
+      if (hfPlanPending || !$('hf-train-form').reportValidity()) return null;
+      hfPlanPending = true;
+      const key = JSON.stringify(hfTrainRequest());
+      $('hf-plan').textContent = 'Reading model and dataset metadata…';
+      try {
+        const plan = await readResponse(await fetch('/huggingface/plan', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: key}));
+        if (key !== JSON.stringify(hfTrainRequest())) return null;
+        $('hf-plan').textContent = `${plan.steps.toLocaleString()} updates · up to ${plan.planned_epochs.toFixed(2)} window passes · ${plan.context} context\n${plan.parameters.toLocaleString()} base parameters · approximately ${plan.estimated_trainable_parameters.toLocaleString()} adapter parameters\nEstimated ${plan.device.toUpperCase()} memory: ${hfBytes(plan.estimated_memory_bytes)} / ${hfBytes(plan.available_memory_bytes)} available · ${plan.fits_estimate ? 'fits estimate (actual use varies)' : 'exceeds budget: reduce context/rank/batch or choose a smaller model'}\n\n${corpusSummary(plan.corpus_report)}`;
+        return plan;
+      } catch (error) { $('hf-plan').textContent = error.message; return null; }
+      finally { hfPlanPending = false; }
+    }
+    $('hf-preview').onclick = previewHfTraining;
+    $('hf-train-form').onsubmit = async event => {
+      event.preventDefault();
+      const plan = await previewHfTraining();
+      if (plan?.fits_estimate) jobRequest('/jobs/hf-finetune', hfTrainRequest());
+    };
+    $('hf-device').onchange = () => { if ($('hf-device').value === 'cpu') $('hf-mode').value = 'lora'; };
+    $('hf-resume').onclick = () => jobRequest('/jobs/hf-finetune', {out: $('hf-out').value.trim(), resume: true});
+    $('hf-stop').onclick = () => jobRequest('/jobs/stop', {});
+    function hfDownloadLink() {
+      const run = $('hf-result-run').value.trim();
+      $('hf-adapter-download').hidden = !run || (jobActive && hfJob?.kind === 'hf-finetune' && hfJob.output === run);
+      $('hf-adapter-download').href = '/huggingface/adapter?run=' + encodeURIComponent(run);
+    }
+    $('hf-result-run').addEventListener('input', hfDownloadLink);
+    $('hf-merge-form').onsubmit = event => {
+      event.preventDefault();
+      jobRequest('/jobs/hf-merge', {run: $('hf-result-run').value.trim(), output: $('hf-merge-output').value.trim(), precision: $('hf-merge-precision').value});
+    };
+    function suggestHfExport() {
+      const name = $('hf-export-model').value.split('/').filter(Boolean).at(-1) || 'merged';
+      $('hf-export-output').value = `exports/${name}-${$('hf-export-precision').value}-${Date.now()}.gguf`;
+    }
+    $('hf-export-use-merged').onclick = () => { $('hf-export-model').value = $('hf-merge-output').value.trim(); suggestHfExport(); };
+    $('hf-export-model').addEventListener('change', suggestHfExport);
+    $('hf-export-precision').addEventListener('change', suggestHfExport);
+    $('hf-export-form').onsubmit = event => {
+      event.preventDefault();
+      jobRequest('/jobs/hf-export', {model: $('hf-export-model').value.trim(), output: $('hf-export-output').value.trim(), precision: $('hf-export-precision').value});
+    };
+    function displayHfJob(job, active) {
+      hfJob = job;
+      $('hf-stop').disabled = !active || job.status !== 'running' || jobPending;
+      $('hf-resume-import').hidden = !job || job.kind !== 'hf-import' || active || job.hf_ready;
+      $('hf-use-job-output').hidden = !job || active || !(job.hf_ready || job.adapter_ready || (job.kind === 'crawl' && job.status === 'succeeded'));
+      $('hf-gguf-download').hidden = !job || job.kind !== 'hf-export' || job.status !== 'succeeded' || !job.export_ready;
+      $('hf-gguf-download').href = job ? '/huggingface/gguf?job_id=' + encodeURIComponent(job.id) : '#';
+      hfDownloadLink();
+      if (!job) return;
+      const p = job.progress || {}, metric = job.metrics?.at(-1);
+      $('hf-job-summary').textContent = `${job.kind.toUpperCase()} · ${job.status} · ${job.output}`;
+      $('hf-job-detail').textContent = p.detail || (active ? 'Starting worker…' : '');
+      if (p.budget) $('hf-job-detail').textContent += `\n${Number(p.completed || 0).toLocaleString()} / ${Number(p.budget).toLocaleString()} ${p.unit || 'items'}`;
+      if (p.resources) $('hf-job-detail').textContent += `\nConversion allowance: ${hfBytes(p.resources.ram_bytes)} RAM · ${hfBytes(p.resources.disk_bytes)} disk`;
+      if (job.kind === 'hf-export' && (p.bytes || p.bytes_written)) $('hf-job-detail').textContent += `\nGGUF: ${hfBytes(p.bytes || p.bytes_written)}`;
+      if (metric?.best_val_loss != null) $('hf-job-detail').textContent += `\nStep ${metric.step}: train NLL ${metric.train_loss.toFixed(4)} · validation NLL ${metric.val_loss.toFixed(4)} · best ${metric.best_val_loss.toFixed(4)}`;
+      $('hf-progress').max = p.budget || 1;
+      if (active && !p.budget) $('hf-progress').removeAttribute('value');
+      else $('hf-progress').value = job.status === 'succeeded' ? (p.budget || 1) : (p.completed || 0);
+      $('hf-job-log').textContent = job.log || '';
+      if (features.huggingface && !active && (job.id !== lastJobId || job.status !== lastJobStatus)) refreshHfAssets();
+    }
+    $('hf-resume-import').onclick = () => { if (hfJob?.kind === 'hf-import') jobRequest('/jobs/hf-import', hfJob.settings); };
+    $('hf-use-job-output').onclick = () => {
+      if (!hfJob || jobActive) return;
+      const job = hfJob;
+      if (job.kind === 'hf-merge') {
+        $('hf-export-model').value = job.output; suggestHfExport();
+        $('hf-export-form').scrollIntoView({behavior: 'smooth'});
+      } else if (job.kind === 'hf-import') {
+        $('hf-model').value = job.output; $('hf-train-model').value = job.output; hfModelInfo();
+        $('hf-prepare-form').scrollIntoView({behavior: 'smooth'});
+      } else if (job.kind === 'hf-prepare') {
+        $('hf-data').value = job.output; $('hf-train-model').value = job.settings.model;
+        $('hf-plan').textContent = 'Dataset selected. Preview the budget before starting.';
+        $('hf-train-form').scrollIntoView({behavior: 'smooth'});
+      } else if (job.kind === 'hf-finetune') {
+        $('hf-result-run').value = job.output; $('hf-out').value = job.output; hfDownloadLink();
+        $('hf-merge-form').scrollIntoView({behavior: 'smooth'});
+      } else if (job.kind === 'crawl') {
+        $('hf-prepare-input').value = job.output;
+        $('hf-prepare-form').scrollIntoView({behavior: 'smooth'});
+      }
+    };
+    updateBudgetMode();
+    refreshArchives();
+    refreshDatasets(true);
+    refreshJob();
+    setInterval(() => { if (!document.hidden) { refreshJob(); refreshExport(); } }, 2000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { refreshJob(); refreshExport(); } });
+  </script>
+</body>
+</html>

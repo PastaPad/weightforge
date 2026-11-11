@@ -1,0 +1,48 @@
+{
+  "evals": [
+    {
+      "name": "english",
+      "val": "/tmp/opencode/wf-eval/qwen-gutenberg/val.bin",
+      "window": 1024,
+      "windows": 4,
+      "seed": 0
+    },
+    {
+      "name": "code",
+      "val": "/tmp/opencode/wf-eval/code/val.bin",
+      "window": 1024,
+      "windows": 4,
+      "seed": 0
+    }
+  ],
+  "device": "cpu",
+  "batch_size": 1,
+  "alphas": [0.0, 0.25, 0.5, 0.75, 1.0],
+  "scales": [0.0, 0.5, 1.0, 1.5, 2.0],
+  "pairs": [
+    {
+      "id": "qwen2.5-0.5b-chat",
+      "base": "Qwen/Qwen2.5-0.5B",
+      "tuned": "Qwen/Qwen2.5-0.5B-Instruct",
+      "task": "chat",
+      "family": "qwen2.5",
+      "size": "0.5B"
+    },
+    {
+      "id": "qwen2.5-coder-0.5b-code",
+      "base": "Qwen/Qwen2.5-Coder-0.5B",
+      "tuned": "Qwen/Qwen2.5-Coder-0.5B-Instruct",
+      "task": "code",
+      "family": "qwen2.5-coder",
+      "size": "0.5B"
+    },
+    {
+      "id": "qwen2.5-1.5b-chat",
+      "base": "Qwen/Qwen2.5-1.5B",
+      "tuned": "Qwen/Qwen2.5-1.5B-Instruct",
+      "task": "chat",
+      "family": "qwen2.5",
+      "size": "1.5B"
+    }
+  ]
+}

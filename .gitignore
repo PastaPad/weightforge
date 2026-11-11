@@ -1,0 +1,12 @@
+.agents/
+data/
+*.egg-info/
+exports/
+*.gguf
+models/
+__pycache__/
+.pytest_cache/
+runs/
+.sober/
+tools/llama.cpp/
+.venv/

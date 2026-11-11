@@ -1,0 +1,20 @@
+{
+  "output": "data/weightforge-synthetic",
+  "device": "cpu",
+  "tasks": [
+    {"id": "arithmetic", "generate": true, "count": 20000, "vocab_size": 512},
+    {"id": "copy", "generate": true, "count": 20000, "vocab_size": 512},
+    {"id": "reverse", "generate": true, "count": 20000, "vocab_size": 512},
+    {"id": "json", "generate": true, "count": 20000, "vocab_size": 512},
+    {"id": "code", "generate": true, "count": 20000, "vocab_size": 512},
+    {"id": "translate", "generate": true, "count": 20000, "vocab_size": 512}
+  ],
+  "sizes": [
+    {"name": "tiny", "width": 128, "layers": 4, "heads": 4, "kv_heads": 2,
+     "ffn_width": 384, "context": 256},
+    {"name": "small", "width": 192, "layers": 6, "heads": 6, "kv_heads": 3,
+     "ffn_width": 512, "context": 256}
+  ],
+  "seeds": [1],
+  "training": {"steps": 300}
+}

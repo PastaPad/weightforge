@@ -1,0 +1,23 @@
+{
+  "context": 256,
+  "width": 128,
+  "layers": 4,
+  "heads": 4,
+  "dropout": 0.2,
+  "batch_size": 4,
+  "accumulation": 2,
+  "steps": 5000,
+  "learning_rate": 0.0003,
+  "min_learning_rate": 0.00003,
+  "warmup_steps": 50,
+  "weight_decay": 0.1,
+  "eval_every": 50,
+  "eval_batches": 32,
+  "seed": 42,
+  "sampling": "shuffled",
+  "max_epochs": 20,
+  "early_stopping_patience": 6,
+  "early_stopping_min_delta": 0.01,
+  "label_smoothing": 0.05,
+  "ema_decay": 0.98
+}
