@@ -10,8 +10,10 @@ from .corpus import load_checkpoint
 from .evaluate import (interpolation_curve, load_eval_set, pearson, ridge_loo_r2,
                        scalar_statistics, task_vector_curve, weight_features)
 from .functional import interpolate
-from .hf_experiment import (HFEvalSet, load_pair, run_corpus, run_pair, save_result,
-                            summarize_corpus)
+from .compose import run_compose, save_compose
+from .lowrank import run_lowrank, run_variance, save_lowrank, save_variance
+from .hf_experiment import (HFEvalSet, load_eval_specs, load_pair, run_corpus, run_pair,
+                            save_result, summarize_corpus)
 
 
 def _eval_sets(args):
@@ -171,6 +173,48 @@ def build_parser() -> argparse.ArgumentParser:
     p_corpus.add_argument("--force", action="store_true", help="recompute existing pairs")
     p_corpus.set_defaults(func=hf_corpus)
 
+    p_comp = sub.add_parser("hf-compose",
+                            help="test whether several weight deltas compose additively")
+    p_comp.add_argument("--base-id", required=True)
+    p_comp.add_argument("--tuned-id", action="append", required=True,
+                        help="repeatable; each becomes one delta from the base")
+    p_comp.add_argument("--eval", action="append", required=True, metavar="NAME=PATH",
+                        help="repeatable, e.g. english=/path/val.bin")
+    p_comp.add_argument("--window", type=int, default=1024)
+    p_comp.add_argument("--windows", type=int, default=4)
+    p_comp.add_argument("--device", default="cpu")
+    p_comp.add_argument("--batch-size", type=int, default=1)
+    p_comp.add_argument("--out", default=None)
+    p_comp.set_defaults(func=hf_compose)
+
+    p_lr = sub.add_parser("hf-lowrank",
+                          help="reconstruct held-out deltas from a basis of other deltas")
+    p_lr.add_argument("--base-id", required=True)
+    p_lr.add_argument("--tuned-id", action="append", required=True,
+                      help="repeatable; each becomes one delta from the base")
+    p_lr.add_argument("--eval", action="append", required=True, metavar="NAME=PATH")
+    p_lr.add_argument("--window", type=int, default=1024)
+    p_lr.add_argument("--windows", type=int, default=4)
+    p_lr.add_argument("--ranks", default="full,2,1",
+                      help="comma-separated ranks; 'full' means no truncation")
+    p_lr.add_argument("--device", default="cpu")
+    p_lr.add_argument("--batch-size", type=int, default=1)
+    p_lr.add_argument("--out", default=None)
+    p_lr.set_defaults(func=hf_lowrank)
+
+    p_var = sub.add_parser("hf-variance",
+                           help="recipe x data variance decomposition of a delta family")
+    p_var.add_argument("--base-id", required=True)
+    p_var.add_argument("--cell", action="append", required=True, metavar="RECIPE,DATA,MODEL_ID",
+                       help="repeatable; one model per (recipe, data) cell")
+    p_var.add_argument("--eval", action="append", default=None, metavar="NAME=PATH")
+    p_var.add_argument("--window", type=int, default=1024)
+    p_var.add_argument("--windows", type=int, default=4)
+    p_var.add_argument("--device", default="cpu")
+    p_var.add_argument("--batch-size", type=int, default=1)
+    p_var.add_argument("--out", default=None)
+    p_var.set_defaults(func=hf_variance)
+
     p_sum = sub.add_parser("hf-summary",
                            help="tabulate connectivity and barriers for a corpus directory")
     p_sum.add_argument("--dir", required=True, help="directory of per-pair result JSONs")
@@ -179,13 +223,114 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _eval_args(args) -> dict:
+    specs = []
+    for item in args.eval:
+        name, _, path = item.partition("=")
+        if not path:
+            raise SystemExit(f"--eval must be NAME=PATH, got {item!r}")
+        specs.append({"name": name, "val": path, "window": args.window,
+                      "windows": args.windows})
+    return load_eval_specs(specs)
+
+
+def hf_compose(args):
+    eval_sets = _eval_args(args)
+    result = run_compose(args.base_id, args.tuned_id, eval_sets, device=args.device,
+                         batch_size=args.batch_size)
+    print()
+    print(f"{'state':30s} " + " ".join(f"{name:>10s}" for name in eval_sets))
+    print(f"{'base':30s} " + " ".join(f"{v:>10.4f}" for v in result.base_nll.values()))
+    for name, rows in result.single_nll.items():
+        print(f"{name:30s} " + " ".join(f"{v:>10.4f}" for v in rows.values()))
+    print(f"{'combined':30s} " + " ".join(f"{v:>10.4f}" for v in result.combined_nll.values()))
+    print()
+    for name, value in result.interaction.items():
+        print(f"  interaction ({name}): {value:+.4f}")
+    for name, value in result.delta_cosine.items():
+        print(f"  delta cosine {name}: {value:+.3f}")
+    if args.out:
+        print(f"saved {save_compose(result, args.out)}")
+
+
+def hf_lowrank(args):
+    eval_sets = _eval_args(args)
+    ranks = [None if item == "full" else int(item) for item in args.ranks.split(",")]
+    result = run_lowrank(args.base_id, args.tuned_id, eval_sets, device=args.device,
+                         batch_size=args.batch_size, ranks=ranks)
+    print()
+    for entry in result.holds:
+        print(f"held out {entry['held_out']}")
+        for name, rows in entry["ranks"].items():
+            scores = " ".join(f"{k}={v:.4f}" for k, v in rows["nll"].items())
+            print(f"  {name:6s} {scores} norm_ratio={rows['norm_ratio']:.3f}")
+        true_scores = " ".join(f"{k}={v:.4f}" for k, v in entry["true_nll"].items())
+        print(f"  true   {true_scores}")
+    if args.out:
+        print(f"saved {save_lowrank(result, args.out)}")
+
+
+def hf_variance(args):
+    cells = []
+    for item in args.cell:
+        parts = item.split(",", 2)
+        if len(parts) != 3:
+            raise SystemExit(f"--cell must be RECIPE,DATA,MODEL_ID, got {item!r}")
+        cells.append(tuple(parts))
+    eval_sets = _eval_args(args) if args.eval else None
+    result = run_variance(args.base_id, cells, device=args.device, eval_sets=eval_sets,
+                          batch_size=args.batch_size)
+    print()
+    anova = result["anova"]
+    print(f"variance decomposition (total {anova['total']:.4g})")
+    for name in ("recipe", "data", "interaction"):
+        print(f"  {name:12s} {anova[name]:12.4g}  {anova[name + '_share'] * 100:6.2f}%")
+    normalized = result["anova_normalized"]
+    print("scale-normalized (directional) shares")
+    for name in ("recipe", "data", "interaction"):
+        print(f"  {name:12s} {'':12s}  {normalized[name + '_share'] * 100:6.2f}%")
+    print()
+    print("leave-one-out reconstruction from the other deltas")
+    for cell, row in zip(result["cells"], result["leave_one_out"]):
+        print(f"  {cell['recipe'] + '/' + cell['data']:24s} cos={row['cosine']:+.3f} "
+              f"norm_ratio={row['norm_ratio']:.3f}")
+    print()
+    print("residual (data-specific) cosine between recipes")
+    for name, value in result["residual_cosines"].items():
+        print(f"  {name:12s} {value:+.3f}")
+    overlap = result.get("overlap")
+    if overlap:
+        print()
+        print(f"shared support: {len(overlap['tensors'])} tensor(s)")
+        anova = overlap["anova"]
+        print(f"  recipe {anova['recipe_share'] * 100:5.2f}%  "
+              f"data {anova['data_share'] * 100:5.2f}%  "
+              f"interaction {anova['interaction_share'] * 100:5.2f}%")
+        for name, value in overlap["residual_cosines"].items():
+            print(f"  residual cosine {name:12s} {value:+.3f}")
+    if eval_sets:
+        print()
+        header = "  ".join(f"{name:>9s}" for name in eval_sets)
+        print(f"{'cell':22s} {header}")
+        for cell in result["cells"]:
+            scores = result["nll"].get(cell["model"], {})
+            print(f"{cell['recipe'] + '/' + cell['data']:22s} " +
+                  "  ".join(f"{scores.get(name, float('nan')):9.4f}" for name in eval_sets))
+    if args.out:
+        print(f"saved {save_variance(result, args.out)}")
+
+
 def hf_summary(args):
     rows = summarize_corpus(args.dir)
-    print(f"{'pair':28s} {'label':22s} {'cos':>6} {'rel_d':>7} {'barrier':>8}")
+    print(f"{'pair':32s} {'label':22s} {'cos':>6} {'rel_d':>7} {'changed':>8} {'barrier':>8}")
     for row in rows:
         barrier = max((value["peak_gap"] for value in row["evals"].values()), default=0.0)
-        print(f"{row['id']:28s} {row['label']:22s} {row['median_cosine']:>6.3f} "
-              f"{row['median_relative_delta']:>7.3f} {barrier:>+8.3f}")
+        total = row.get("total_relative_delta")
+        changed = row.get("changed_fraction")
+        print(f"{row['id']:32s} {row['label']:22s} {row['median_cosine']:>6.3f} "
+              f"{total if total is not None else float('nan'):>7.3f} "
+              f"{100 * changed if changed is not None else float('nan'):>7.1f}% "
+              f"{barrier:>+8.3f}")
     print(f"{len(rows)} pairs")
 
 

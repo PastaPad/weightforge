@@ -48,21 +48,54 @@ def load_checkpoint(path, map_location: str = "cpu") -> Checkpoint:
     )
 
 
-def load_hf_checkpoint(model_id: str, revision: str | None = None, map_location: str = "cpu") -> Checkpoint:
+def local_snapshot_path(model_id: str, revision: str | None = None) -> Path:
+    """Resolve a downloaded snapshot directory without HF's completeness check.
+
+    ``snapshot_download(local_files_only=True)`` refuses a repo whose snapshot is
+    missing files we deliberately excluded (GGUF/ONNX siblings), which is common
+    for community repos. Reading the ref directly is enough for our use.
+    """
+    from huggingface_hub import constants
+
+    root = Path(constants.HF_HUB_CACHE) / f"models--{model_id.replace('/', '--')}"
+    ref = root / "refs" / (revision or "main")
+    if ref.exists():
+        path = root / "snapshots" / ref.read_text().strip()
+        if path.is_dir():
+            return path
+    snapshots = sorted((root / "snapshots").glob("*")) if (root / "snapshots").is_dir() else []
+    for path in reversed(snapshots):
+        if (path / "config.json").exists():
+            return path
+    stubs = f"hf://{model_id}"
+    raise FileNotFoundError(f"{stubs} is not downloaded ({root})")
+
+
+def load_hf_checkpoint(model_id: str, revision: str | None = None,
+                       map_location: str = "cpu") -> Checkpoint:
     """Load a Hugging Face model from the local cache (must be downloaded)."""
-    from huggingface_hub import snapshot_download
     from safetensors import safe_open
 
-    path = snapshot_download(model_id, revision=revision, local_files_only=True)
-    path = Path(path)
+    path = local_snapshot_path(model_id, revision)
 
     with open(path / "config.json") as f:
         cfg = json.load(f)
 
-    with safe_open(path / "model.safetensors", framework="pt", device=map_location) as f:
-        state_dict = {k: f.get_tensor(k) for k in f.keys()}
+    weights = path / "model.safetensors"
+    if not weights.exists():
+        shards = sorted(path.glob("model-*.safetensors"))
+        if not shards:
+            raise FileNotFoundError(f"no safetensors weights in {path}")
+        state_dict = {}
+        for shard in shards:
+            with safe_open(shard, framework="pt", device=map_location) as f:
+                state_dict.update({k: f.get_tensor(k) for k in f.keys()})
+    else:
+        with safe_open(weights, framework="pt", device=map_location) as f:
+            state_dict = {k: f.get_tensor(k) for k in f.keys()}
 
-    tokenizer_json = (path / "tokenizer.json").read_text(encoding="utf-8") if (path / "tokenizer.json").exists() else None
+    tokenizer_json = ((path / "tokenizer.json").read_text(encoding="utf-8")
+                      if (path / "tokenizer.json").exists() else None)
 
     return Checkpoint(
         path=path,

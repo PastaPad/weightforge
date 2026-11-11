@@ -43,6 +43,33 @@
       "task": "chat",
       "family": "qwen2.5",
       "size": "1.5B"
+    },
+    {
+      "id": "qwen2.5-0.5b-instruct-heretic",
+      "base": "Qwen/Qwen2.5-0.5B-Instruct",
+      "tuned": "saidutta69/Qwen2.5-0.5B-Instruct-heretic",
+      "task": "surgical-ablation",
+      "family": "qwen2.5",
+      "size": "0.5B",
+      "note": "abliteration: 9.7% of tensors (o_proj, down_proj) changed, total relative delta 0.008"
+    },
+    {
+      "id": "qwen2.5-0.5b-iso27001",
+      "base": "Qwen/Qwen2.5-0.5B-Instruct",
+      "tuned": "sallani/ISO27001-Qwen2.5-0.5B-Edge",
+      "task": "compliance-lora",
+      "family": "qwen2.5",
+      "size": "0.5B",
+      "note": "LoRA merge touching 38.6% of tensors, total relative delta 0.082"
+    },
+    {
+      "id": "qwen2.5-0.5b-iso42001",
+      "base": "Qwen/Qwen2.5-0.5B-Instruct",
+      "tuned": "sallani/ISO42001-Qwen2.5-0.5B-Edge",
+      "task": "compliance-lora",
+      "family": "qwen2.5",
+      "size": "0.5B",
+      "note": "LoRA merge touching 38.6% of tensors, total relative delta 0.043"
     }
   ]
 }

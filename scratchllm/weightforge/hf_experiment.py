@@ -22,6 +22,7 @@ from .corpus import Checkpoint, load_hf_checkpoint
 from .evaluate import pearson, ridge_loo_r2, weight_features
 from .functional import apply_vector, evaluate_hf_nll, interpolate, load_stream, task_vector
 from .hf_models import Qwen2Config, load_qwen2_state
+from .numerics import stable_cosine, stable_norm, stable_relative_delta
 
 
 @dataclass
@@ -88,10 +89,8 @@ def relative_delta_per_tensor(base_state, tuned_state) -> dict[str, float]:
     """Frobenius norm of each weight delta, relative to the base tensor norm."""
     result = {}
     for key in sorted(base_state):
-        base = base_state[key].float()
-        delta = tuned_state[key].float() - base
-        norm = base.norm().item() or 1.0
-        result[key] = delta.norm().item() / norm
+        delta = tuned_state[key].float() - base_state[key].float()
+        result[key] = stable_relative_delta(base_state[key], delta)
     return result
 
 
@@ -99,29 +98,40 @@ def cosine_per_tensor(base_state, tuned_state) -> dict[str, float]:
     """Cosine similarity between matching tensors, flattened."""
     result = {}
     for key in sorted(base_state):
-        a = base_state[key].float().reshape(-1)
-        b = tuned_state[key].float().reshape(-1)
-        if a.norm() == 0 or b.norm() == 0:
+        if key not in tuned_state:
             continue
-        result[key] = torch.nn.functional.cosine_similarity(a, b, dim=0).item()
+        value = stable_cosine(base_state[key], tuned_state[key])
+        if not np.isnan(value):
+            result[key] = value
     return result
 
 
 def weight_similarity(base_state, tuned_state) -> dict:
     """Connectivity diagnostics for a pair.
 
-    True parent/child finetunes sit close to cosine 1.0. Pairs that were retrained
-    from a different starting point, or tuned very heavily, sit far lower, and
-    their linear path is unlikely to be loss-connected.
+    Includes sparsity statistics because surgical edits (abliteration, small
+    fine-tunes) leave most tensors bit-identical; the median then reads 0.0 and
+    hides which tensors actually moved.
     """
     cosines = cosine_per_tensor(base_state, tuned_state)
     values = list(cosines.values())
     deltas = relative_delta_per_tensor(base_state, tuned_state)
     weakest = sorted(cosines.items(), key=lambda kv: kv[1])[:10]
+    changed = {key: value for key, value in deltas.items() if value > 1e-6}
+    total_sq = 0.0
+    base_sq = 0.0
+    for key in deltas:
+        delta = tuned_state[key].float() - base_state[key].float()
+        total_sq += stable_norm(delta) ** 2
+        base_sq += stable_norm(base_state[key]) ** 2
     return {
         "median_cosine": float(np.median(values)) if values else float("nan"),
         "min_cosine": float(min(values)) if values else float("nan"),
         "median_relative_delta": float(np.median(list(deltas.values()))) if deltas else float("nan"),
+        "max_relative_delta": float(max(deltas.values())) if deltas else float("nan"),
+        "total_relative_delta": (total_sq / base_sq) ** 0.5 if base_sq else float("nan"),
+        "changed_fraction": len(changed) / len(deltas) if deltas else float("nan"),
+        "changed_tensors": sorted(changed),
         "embedding_cosine": cosines.get("model.embed_tokens.weight"),
         "weakest_tensors": [{"key": key, "cosine": value} for key, value in weakest],
     }
@@ -206,9 +216,15 @@ def arch_signature(config: dict) -> dict:
 
     Provenance metadata is ignored, and so is ``max_position_embeddings``: the
     base and instruct repos often disagree on it (131072 vs 32768) while the
-    tensors are identical. Weight shapes are checked separately.
+    tensors are identical. Community repos may also omit fields that have HF
+    defaults, so missing values are normalized instead of counted as a mismatch.
     """
-    return {key: config.get(key) for key in ARCH_KEYS}
+    signature = {key: config.get(key) for key in ARCH_KEYS}
+    signature["rope_theta"] = signature["rope_theta"] or 1_000_000.0
+    signature["rms_norm_eps"] = signature["rms_norm_eps"] or 1e-6
+    if signature["tie_word_embeddings"] is None:
+        signature["tie_word_embeddings"] = True
+    return signature
 
 
 def load_pair(base_id: str, tuned_id: str) -> tuple[Checkpoint, Checkpoint]:
@@ -291,6 +307,8 @@ def summarize_corpus(out_dir) -> list[dict]:
             "label": connectivity.get("label", "?"),
             "median_cosine": connectivity.get("median_cosine"),
             "median_relative_delta": connectivity.get("median_relative_delta"),
+            "total_relative_delta": connectivity.get("total_relative_delta"),
+            "changed_fraction": connectivity.get("changed_fraction"),
             "evals": {},
         }
         for name, values in data.get("interpolation_nll", {}).items():

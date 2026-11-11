@@ -240,6 +240,116 @@ class Qwen2Tests(unittest.TestCase):
         self.assertTrue(torch.allclose(q_out[..., 0, :], q[..., 0, :], atol=1e-6))
 
 
+class ComposeTests(unittest.TestCase):
+    def test_flat_delta_cosine(self):
+        from scratchllm.weightforge.compose import flat_delta_cosine
+        a = {"x": torch.tensor([1.0, 0.0, 0.0]), "y": torch.tensor([0.0, 2.0, 0.0])}
+        b = {"x": torch.tensor([2.0, 0.0, 0.0]), "y": torch.tensor([0.0, 4.0, 0.0])}
+        self.assertAlmostEqual(flat_delta_cosine(a, b), 1.0, places=6)
+
+        c = {"x": torch.tensor([-1.0, 0.0, 0.0]), "y": torch.tensor([0.0, -2.0, 0.0])}
+        self.assertAlmostEqual(flat_delta_cosine(a, c), -1.0, places=6)
+
+        d = {"x": torch.tensor([0.0, 0.0, 0.0]), "y": torch.tensor([0.0, 0.0, 0.0])}
+        self.assertTrue(np.isnan(flat_delta_cosine(a, d)))
+
+    def test_flat_delta_norm(self):
+        from scratchllm.weightforge.compose import flat_delta_norm
+        vector = {"x": torch.tensor([3.0, 0.0]), "y": torch.tensor([0.0, 4.0])}
+        self.assertAlmostEqual(flat_delta_norm(vector), 5.0, places=6)
+
+
+class LowRankTests(unittest.TestCase):
+    def test_projection_recovers_exact_coefficients(self):
+        from scratchllm.weightforge.lowrank import projection_coefficients
+        gram = np.eye(3)
+        inner = np.array([0.7, 0.2, -0.4])
+        coefficients = projection_coefficients(gram, inner)
+        np.testing.assert_allclose(coefficients, inner, atol=1e-9)
+
+    def test_projection_handles_correlated_basis(self):
+        from scratchllm.weightforge.lowrank import projection_coefficients
+        gram = np.array([[1.0, 1.0], [1.0, 1.0]])
+        inner = np.array([0.5, 0.5])
+        coefficients = projection_coefficients(gram, inner, rank=1)
+        # rank-1 basis: coefficients reproduce the vector projection (length 0.5)
+        self.assertAlmostEqual(float(coefficients @ gram @ coefficients) ** 0.5, 0.5,
+                               places=6)
+
+    def test_combine_is_linear(self):
+        from scratchllm.weightforge.lowrank import combine
+        base = {"w": torch.tensor([1.0, 1.0])}
+        deltas = {"a": {"w": torch.tensor([1.0, 0.0])},
+                  "b": {"w": torch.tensor([0.0, 2.0])}}
+        state = combine(base, deltas, [2.0, 0.5])
+        self.assertTrue(torch.allclose(state["w"], torch.tensor([3.0, 2.0])))
+
+
+class NumericsTests(unittest.TestCase):
+    def test_cosine_of_identical_bf16_tensor_is_exactly_one(self):
+        import torch
+        from scratchllm.weightforge.numerics import stable_cosine
+        generator = torch.Generator().manual_seed(0)
+        tensor = torch.randn(2_000_000, generator=generator).to(torch.bfloat16)
+        self.assertAlmostEqual(stable_cosine(tensor, tensor), 1.0, places=12)
+
+    def test_cosine_handles_chunk_boundaries(self):
+        import torch
+        from scratchllm.weightforge.numerics import _CHUNK, stable_cosine
+        generator = torch.Generator().manual_seed(1)
+        a = torch.randn(_CHUNK + 7, generator=generator)
+        b = -a.clone()
+        self.assertAlmostEqual(stable_cosine(a, b), -1.0, places=9)
+
+    def test_stable_dot_matches_float64_reference(self):
+        import torch
+        from scratchllm.weightforge.numerics import stable_dot
+        generator = torch.Generator().manual_seed(2)
+        a = torch.randn(100_003, generator=generator).to(torch.bfloat16)
+        b = torch.randn(100_003, generator=generator).to(torch.bfloat16)
+        expected = (a.double() @ b.double()).item()
+        self.assertAlmostEqual(stable_dot(a, b), expected, places=6)
+
+
+class AdapterTests(unittest.TestCase):
+    def test_normalize_key_strips_peft_prefixes(self):
+        from scratchllm.weightforge.adapters import _normalize_key
+        self.assertEqual(_normalize_key("base_model.model.model.layers.3.mlp.down_proj.lora_A.weight"),
+                         "model.layers.3.mlp.down_proj.lora_A.weight")
+
+    def test_scale_uses_alpha_over_rank(self):
+        from scratchllm.weightforge.adapters import adapter_scale
+        self.assertAlmostEqual(adapter_scale({"r": 1, "lora_alpha": 2}), 2.0)
+        self.assertAlmostEqual(adapter_scale({"r": 8, "lora_alpha": 16}), 2.0)
+
+    def test_scale_honours_patterns(self):
+        from scratchllm.weightforge.adapters import adapter_scale
+        config = {"r": 8, "lora_alpha": 16,
+                  "rank_pattern": {"down_proj": 2}, "alpha_pattern": {"down_proj": 8}}
+        self.assertAlmostEqual(adapter_scale(config, "model.layers.0.mlp.down_proj"), 4.0)
+        self.assertAlmostEqual(adapter_scale(config, "model.layers.0.self_attn.q_proj"), 2.0)
+
+
+class VarianceTests(unittest.TestCase):
+    def test_group_sum_of_squares_of_identical_vectors(self):
+        import numpy as np
+        from scratchllm.weightforge.variance import group_sum_of_squares
+        gram = np.ones((3, 3))
+        # three identical unit vectors, one group -> zero between-group variance
+        self.assertAlmostEqual(group_sum_of_squares(gram, ["a", "a", "a"]), 0.0, places=9)
+
+    def test_anova_split_on_orthogonal_factors(self):
+        import numpy as np
+        from scratchllm.weightforge.variance import two_way_anova
+        gram = np.eye(4)
+        recipe = ["r1", "r1", "r2", "r2"]
+        data = ["d1", "d2", "d1", "d2"]
+        result = two_way_anova(gram, recipe, data)
+        # each factor splits 2 vs 2 with zero cross-group overlap -> half each
+        self.assertAlmostEqual(result["recipe_share"] + result["data_share"] +
+                               result["interaction_share"], 1.0, places=9)
+
+
 class CLITests(unittest.TestCase):
     def test_smoke_parser(self):
         args = build_parser().parse_args([

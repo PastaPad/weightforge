@@ -18,6 +18,11 @@ and predictable on real open checkpoints.
 | Interpolation / task-vector / probe sweep | `hf_experiment.py` (`run_pair`) | done |
 | Pair connectivity diagnostics | `hf_experiment.py` (`weight_similarity`) | done |
 | Corpus runner over a pair spec | `hf_experiment.py` (`run_corpus`) | done |
+| LoRA/PEFT adapters as exact deltas | `adapters.py` | done |
+| Delta composition + interaction terms | `compose.py` | done |
+| Held-out delta reconstruction from a basis | `lowrank.py` | done |
+| Recipe x data variance decomposition | `variance.py` | done |
+| Stable float64 reductions for 100M+ tensors | `numerics.py` | done |
 | Synthetic task corpus (scratchllm) | `build.py`, `tasks.py` | done, not the research corpus |
 
 ## Usage
@@ -40,6 +45,26 @@ python -m scratchllm.weightforge hf-corpus \
 
 # tabulate a finished corpus
 python -m scratchllm.weightforge hf-summary --dir runs/weightforge/hf-corpus
+
+# additive composition of several deltas, with interaction terms
+python -m scratchllm.weightforge hf-compose \
+  --base-id Qwen/Qwen2.5-0.5B-Instruct \
+  --tuned-id saidutta69/Qwen2.5-0.5B-Instruct-heretic \
+  --tuned-id sallani/ISO27001-Qwen2.5-0.5B-Edge \
+  --eval english=/tmp/opencode/wf-eval/qwen-gutenberg/val.bin \
+  --out runs/weightforge/compose/example.json
+
+# can a held-out delta be rebuilt from a basis of other deltas?
+python -m scratchllm.weightforge hf-lowrank \
+  --base-id Qwen/Qwen2.5-0.5B-Instruct \
+  --tuned-id <model-a> --tuned-id <model-b> --tuned-id <model-c> \
+  --eval english=/tmp/opencode/wf-eval/qwen-gutenberg/val.bin
+
+# recipe x data decomposition of a controlled family (adapters supported)
+python -m scratchllm.weightforge hf-variance \
+  --base-id Qwen/Qwen2.5-0.5B-Instruct \
+  --cell r1,dataA,<adapter-a> --cell r1,dataB,<adapter-b> \
+  --cell r32,dataA,<adapter-c> --cell r32,dataB,<adapter-d>
 ```
 
 Evaluation streams are little-endian `uint32` token files (`train.bin`/`val.bin`
@@ -47,59 +72,74 @@ convention). The current one is a Qwen-tokenized Project Gutenberg split:
 Alice in Wonderland + Sherlock Holmes + Pride and Prejudice, 90/10 split,
 34,992 validation tokens.
 
-## Findings so far (Qwen2.5, English Gutenberg + Python stdlib NLL)
+## Findings so far
 
-Verified against `transformers` on the same weights: logits agree to 2e-5, NLL to
-1e-6.
+Probes are English Project Gutenberg (Alice, Sherlock, Pride and Prejudice) and
+Python 3.14 stdlib source, scored as next-token NLL on four 1024-token windows.
+Hand-written forward pass verified against `transformers`: logits agree to 2e-5,
+NLL to 1e-6.
 
-`Qwen2.5-0.5B` -> `Qwen2.5-0.5B-Instruct` (median weight cosine 0.999, `sibling`):
+### Corpus
 
-| alpha / scale | 0.00 | 0.25 | 0.50 | 0.75 | 1.00 |
-|---|---|---|---|---|---|
-| interpolation, english | 2.996 | 3.002 | 3.014 | 3.033 | 3.060 |
-| interpolation, code | 1.424 | 1.424 | 1.428 | 1.436 | 1.450 |
-| task vector, english | 2.996 | 3.014 | 3.060 | 3.175 (x1.5) | 3.544 (x2.0) |
-| task vector, code | 1.424 | 1.428 | 1.450 | 1.497 (x1.5) | 1.586 (x2.0) |
+| pair | label | median cos | total rel delta | changed tensors | barrier | english endpoint |
+|---|---|---|---|---|---|---|
+| 0.5B -> Instruct | sibling | 0.999 | 0.042 | 100% | 0.000 | 3.061 |
+| 1.5B -> 1.5B Instruct | sibling | 1.000 | 0.010 | 100% | 0.000 | 2.629 |
+| Instruct -> heretic | sibling | 1.000 | 0.008 | 9.7% | 0.000 | 3.074 |
+| Instruct -> ISO27001 | sibling | 1.000 | 0.081 | 38.6% | 0.000 | 4.633 |
+| Instruct -> ISO42001 | sibling | 1.000 | 0.043 | 38.6% | 0.000 | 4.102 |
+| Coder-0.5B -> Coder Instruct | continued-pretraining | 0.784 | 0.501 | 100% | +1.364 | 3.712 |
 
-Monotone and near-linear; the instruct delta costs a little raw-text likelihood
-and costs a little code likelihood too.
+Two failure modes have to be scored separately:
 
-`Qwen2.5-Coder-0.5B` -> `Qwen2.5-Coder-0.5B-Instruct` (median cosine 0.784,
-`continued-pretraining`):
+* **barrier** - the midpoint is worse than both endpoints (non-monotone path);
+* **endpoint damage** - the tuned model itself is worse on the probe.
 
-| alpha / scale | 0.00 | 0.25 | 0.50 | 0.75 | 1.00 |
-|---|---|---|---|---|---|
-| interpolation, english | 3.050 | 3.939 | 5.076 | 4.162 | 3.712 |
-| interpolation, code | 1.341 | 1.857 | 2.491 | 1.764 | 1.450 |
-| task vector, english | 3.050 | 5.076 (x0.5) | 3.712 (x1.0) | 15.62 (x1.5) | 25.67 (x2.0) |
-| task vector, code | 1.341 | 2.492 (x0.5) | 1.450 (x1.0) | 15.99 (x1.5) | 25.10 (x2.0) |
+They do not coincide. ISO42001 and the chat delta have almost the same total
+relative delta (0.043 vs 0.042) but cost 1.05 and 0.01 NLL. Barrier needs both a
+large delta and the wrong direction (only the coder pair has one). Magnitude
+alone predicts neither.
 
-Same nominal lineage, but the pair is **not linearly connected**: a loss barrier
-at the midpoint and divergent extrapolation. Median weight cosine separates the
-two cases cleanly (0.999 vs 0.784), which is why every pair now records
-connectivity diagnostics.
+The first two rows start from `Qwen2.5-0.5B`/`1.5B` and the rest from
+`-Instruct`, so absolute NLLs are not comparable across rows; the deltas are.
 
-## Corpus overview
+`median_cosine` is useless for surgical edits: most tensors are bit-identical, so
+the median is exactly 1.0 while 9.7% of tensors moved. Every pair now records
+`total_relative_delta` and `changed_fraction` alongside it.
 
-| pair | label | median cos | median relative delta | barrier |
-|---|---|---|---|---|
-| Qwen2.5-0.5B -> Instruct | sibling | 0.999 | 0.053 | 0.000 |
-| Qwen2.5-1.5B -> Instruct | sibling | 1.000 | 0.011 | 0.000 |
-| Coder-0.5B -> Coder-0.5B-Instruct | continued-pretraining | 0.784 | 0.685 | +1.364 |
+### Surgical edits are common and behave like siblings
 
-The instruct delta is *relatively* smaller at 1.5B than at 0.5B (0.011 vs 0.053),
-and its interpolation path is correspondingly flatter (english 2.594 -> 2.629 vs
-2.996 -> 3.060). Barrier height tracks relative delta norm, not nominal lineage:
-the coder pair has the same parent/child naming but a 12x larger delta.
+`saidutta69/Qwen2.5-0.5B-Instruct-heretic` changes exactly `self_attn.o_proj` and
+`mlp.down_proj` in every layer (33 of 338 tensors, total relative delta 0.008).
+The interpolation path is flat (3.051 -> 3.074 english) and extrapolation is
+stable (x2: 3.164 english, 1.520 code). The ISO "Edge" models are LoRA merges
+that touch 38.6% of tensors with deltas 5-10x larger; their path is also
+monotone, but every intermediate model is already damaged.
 
-## Delta transfer
+### Orthogonal deltas still interfere
 
-Some deltas also fail to *compose*. Applying the code-pretraining delta
-(`Coder-0.5B - Qwen2.5-0.5B`) to the chat base at half strength lands in a
-barrier (english 4.70, code 2.32) even though the full-strength delta reproduces
-`Coder-0.5B` exactly. Only sibling-scale deltas stay usable off their endpoints.
+Three deltas on the same base, each with a near-zero pairwise cosine:
 
-| state | english NLL | code NLL |
+| state | english | code |
+|---|---|---|
+| Instruct (base) | 3.051 | 1.445 |
+| + heretic | 3.074 | 1.456 |
+| + ISO27001 | 4.633 | 2.572 |
+| + ISO42001 | 4.102 | 2.195 |
+| + all three | 7.289 | 4.684 |
+
+Additive prediction would be 5.71; the measured combination is 7.29, an
+interaction of +1.58. Cosine between deltas does not predict whether the losses
+add: heretic/ISO cosines are 0.000 and ISO27001/ISO42001 is 0.198, yet the
+combination is far past either delta alone.
+
+### Transfer across bases
+
+Applying the code-pretraining delta (`Coder-0.5B - Qwen2.5-0.5B`) to the chat
+base at half strength lands in a barrier even though the full-strength delta
+reproduces `Coder-0.5B` exactly:
+
+| state | english | code |
 |---|---|---|
 | `Qwen2.5-0.5B` | 2.996 | 1.424 |
 | `+ T_code` x1.0 (= `Coder-0.5B`) | 3.050 | 1.341 |
@@ -107,11 +147,62 @@ barrier (english 4.70, code 2.32) even though the full-strength delta reproduces
 | `+ T_chat` x1.0 (= `Instruct`) | 3.060 | 1.450 |
 | `+ T_code + T_chat` | 3.200 | 1.408 |
 
+A delta is only usable off its endpoints when its magnitude is sibling-scale
+(total relative delta below ~0.1 in this family).
+
+### A basis of task vectors reconstructs narrow deltas only
+
+Controlled family published by `gumperto`: five datasets times two LoRA recipes
+of the same base. Deltas are exact (adapters, not merged files).
+
+| recipe | support | rank | within-family cos | leave-one-out cos |
+|---|---|---|---|---|
+| `down-l12-r1` | 1 matrix | 1 per delta | 0.58 - 0.93 (0.71) | 0.75 - 0.95 |
+| `all-full-r32` | 168 matrices | 32 per delta | 0.03 - 0.33 (0.09) | 0.09 - 0.36 |
+
+Same data, different recipe: |cos| < 0.001. Different data, same recipe: strongly
+aligned for the rank-1 recipe, barely aligned for the rank-32 recipe.
+
+So a held-out delta is predictable from other deltas of the same recipe exactly
+to the extent that the recipe is narrow. Width buys behaviour but destroys linear
+predictability, and recipe identity dominates support: the same data trained two
+ways lands in nearly orthogonal subspaces.
+
+The reconstruction experiment also shows why NLL is the wrong primary metric
+here: projecting a held-out delta onto a basis can *improve* NLL relative to the
+real tuned model, because the projection keeps the harmless component and drops
+the damaging one. Delta-space fidelity (cosine, norm ratio) is the honest measure.
+
+### Recipe vs data
+
+Two-way decomposition of the ten-delta family:
+
+| decomposition | recipe | data | interaction |
+|---|---|---|---|
+| by norm | 52% | 24% | 24% |
+| scale-normalized (direction) | 35% | 32% | 32% |
+
+Direction is roughly one-third recipe, one-third dataset, one-third interaction.
+There is no clean "task direction" that can be lifted from one recipe and reused
+in another.
+
+### Adapters barely move these probes
+
+The `gumperto` adapters change english NLL by at most 0.008 and code NLL by at
+most 0.003. They were trained on synthetic data outside both probes, so their
+delta-space structure is measurable but their behaviour is not. Behavioural
+claims about a delta need an in-domain probe; weight-space claims do not.
+
 ## Honest limitations
 
-- One 0.5B family, one evaluation corpus, one metric (NLL). No perplexity on
-  task-specific data yet (no chat-template scoring, no code benchmark).
-- The probe (`ridge LOO R^2`) has 5 points per curve; it is a wiring check, not a
-  result.
-- CPU evaluation at ~13 s per 4x1024-token window makes 1.5B+ sweeps slow.
+- One model family (Qwen2, 0.5B/1.5B), two English probes, one behavioural metric
+  (NLL). No chat-template scoring and no task benchmark yet.
+- Delta families have five members; leave-one-out uses a four-vector basis. That
+  is enough to separate "narrow" from "wide" recipes, not enough for scaling laws.
+- The probe (`ridge LOO R^2`) has five points per curve; it is a wiring check.
+- CPU evaluation at ~1-3 minutes per 4x1024-token window makes 1.5B+ sweeps slow
+  and limits how many pairs can be measured per session.
+- Float32 accumulation silently corrupted large-tensor diagnostics (an embedding
+  cosine of 1.033 between identical tensors); `numerics.py` now uses chunked
+  float64 for every reduction over 100M+ elements.
 - `hf_models.py` supports the Qwen2 architecture only.
