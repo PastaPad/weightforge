@@ -280,14 +280,20 @@ def hf_lowrank(args):
 
 def hf_gram(args):
     result = run_gram(args.base_id, args.model)
-    short = [name.split("/")[-1][:18] for name in result["models"]]
+    short = []
+    for model in result["models"]:
+        label = model.split("/")[-1][:22]
+        while label in short:
+            label = label[:-1] + "#"
+        short.append(label)
+    width = max(12, max(len(label) for label in short)) if short else 12
     print()
     print("norms: " + " ".join(f"{name}={value:.3f}"
                                for name, value in zip(short, result["norms"])))
     print("cosines")
-    print(" " * 20 + " ".join(f"{name:>18s}" for name in short))
+    print(" " * (width + 2) + " ".join(f"{name:>{width}s}" for name in short))
     for name, row in zip(short, result["cosines"]):
-        print(f"{name:20s}" + " ".join(f"{value:>18.3f}" for value in row))
+        print(f"{name:{width}s}  " + " ".join(f"{value:>{width}.3f}" for value in row))
     print()
     if result["duplicates"]:
         print()

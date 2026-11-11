@@ -14,12 +14,9 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import numpy as np
-import torch
-
 from .corpus import Checkpoint, load_hf_checkpoint
 from .functional import task_vector
-from .hf_experiment import (HFEvalSet, arch_signature, load_eval_specs, score_state)
+from .hf_experiment import HFEvalSet, arch_signature, score_state
 from .hf_models import Qwen2Config
 from .numerics import stable_dot
 
