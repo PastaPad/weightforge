@@ -338,6 +338,23 @@ class VarianceTests(unittest.TestCase):
         # three identical unit vectors, one group -> zero between-group variance
         self.assertAlmostEqual(group_sum_of_squares(gram, ["a", "a", "a"]), 0.0, places=9)
 
+    def test_leave_one_out_on_identical_deltas_is_exact(self):
+        import numpy as np
+        from scratchllm.weightforge.variance import leave_one_out_from_gram
+        gram = np.ones((4, 4))
+        rows = leave_one_out_from_gram(gram)
+        for row in rows:
+            self.assertAlmostEqual(row["cosine"], 1.0, places=9)
+            self.assertAlmostEqual(row["norm_ratio"], 1.0, places=9)
+
+    def test_leave_one_out_on_orthogonal_basis_is_zero(self):
+        import numpy as np
+        from scratchllm.weightforge.variance import leave_one_out_from_gram
+        gram = np.eye(4)
+        rows = leave_one_out_from_gram(gram)
+        for row in rows:
+            self.assertAlmostEqual(abs(row["cosine"]), 0.0, places=9)
+
     def test_anova_split_on_orthogonal_factors(self):
         import numpy as np
         from scratchllm.weightforge.variance import two_way_anova

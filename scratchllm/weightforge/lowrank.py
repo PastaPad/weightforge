@@ -195,7 +195,7 @@ def leave_one_out(config, base_state, deltas, true_nll, eval_sets, *,
             quadratic = float(full @ gram @ full)
             covariance = float(full @ gram[:, index])
             cosine = (covariance / (quadratic ** 0.5 * true_norm)
-                      if quadratic > 0 and true_norm else float("nan"))
+                      if quadratic > 0 and true_norm else 0.0)
             label = "full" if rank is None else f"rank{rank}"
             entry["ranks"][label] = {
                 "nll": nll,
@@ -294,6 +294,40 @@ def run_variance(base_id: str, cells: list[tuple[str, str, str]], *, device: str
         "nll": nll,
     }
     return result
+
+
+def run_gram(base_id: str, model_ids: list[str], *, progress=print) -> dict:
+    """Cosine structure of a set of deltas without any forward pass.
+
+    Answers "do these deltas point the same way?" for full-weight checkpoints and
+    adapters alike. Cheap: no model is scored, only differenced and dotted.
+    """
+    from .variance import leave_one_out_from_gram
+
+    base = load_hf_checkpoint(base_id)
+    deltas: dict[str, dict[str, torch.Tensor]] = {}
+    for model_id in model_ids:
+        if is_adapter(model_id):
+            delta = adapter_delta(base.state_dict, model_id)
+        else:
+            delta = task_vector(base.state_dict, load_hf_checkpoint(model_id).state_dict)
+        deltas[model_id] = delta
+        progress(f"  {model_id:64s} tensors={len(delta):3d}")
+    gram = gram_matrix(deltas)
+    norms = np.sqrt(np.diag(gram))
+    cosines = gram / np.outer(norms, norms)
+    duplicates = [[model_ids[i], model_ids[j]]
+                  for i in range(len(model_ids)) for j in range(i + 1, len(model_ids))
+                  if cosines[i, j] > 0.9999 and abs(norms[i] - norms[j]) < 1e-6]
+    return {
+        "base": base_id,
+        "models": model_ids,
+        "gram": gram.tolist(),
+        "norms": norms.tolist(),
+        "cosines": cosines.tolist(),
+        "duplicates": duplicates,
+        "leave_one_out": leave_one_out_from_gram(gram),
+    }
 
 
 def save_variance(result: dict, path) -> Path:

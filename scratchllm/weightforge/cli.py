@@ -11,7 +11,8 @@ from .evaluate import (interpolation_curve, load_eval_set, pearson, ridge_loo_r2
                        scalar_statistics, task_vector_curve, weight_features)
 from .functional import interpolate
 from .compose import run_compose, save_compose
-from .lowrank import run_lowrank, run_variance, save_lowrank, save_variance
+from .lowrank import (run_gram, run_lowrank, run_variance, save_lowrank,
+                      save_variance)
 from .hf_experiment import (HFEvalSet, load_eval_specs, load_pair, run_corpus, run_pair,
                             save_result, summarize_corpus)
 
@@ -202,6 +203,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_lr.add_argument("--out", default=None)
     p_lr.set_defaults(func=hf_lowrank)
 
+    p_gram = sub.add_parser("hf-gram",
+                            help="cosine structure of a set of deltas (no forward pass)")
+    p_gram.add_argument("--base-id", required=True)
+    p_gram.add_argument("--model", action="append", required=True)
+    p_gram.add_argument("--out", default=None)
+    p_gram.set_defaults(func=hf_gram)
+
     p_var = sub.add_parser("hf-variance",
                            help="recipe x data variance decomposition of a delta family")
     p_var.add_argument("--base-id", required=True)
@@ -268,6 +276,31 @@ def hf_lowrank(args):
         print(f"  true   {true_scores}")
     if args.out:
         print(f"saved {save_lowrank(result, args.out)}")
+
+
+def hf_gram(args):
+    result = run_gram(args.base_id, args.model)
+    short = [name.split("/")[-1][:18] for name in result["models"]]
+    print()
+    print("norms: " + " ".join(f"{name}={value:.3f}"
+                               for name, value in zip(short, result["norms"])))
+    print("cosines")
+    print(" " * 20 + " ".join(f"{name:>18s}" for name in short))
+    for name, row in zip(short, result["cosines"]):
+        print(f"{name:20s}" + " ".join(f"{value:>18.3f}" for value in row))
+    print()
+    if result["duplicates"]:
+        print()
+        print("WARNING: identical deltas (duplicate uploads?)")
+        for left, right in result["duplicates"]:
+            print(f"  {left} == {right}")
+    print()
+    print("leave-one-out reconstruction")
+    for name, row in zip(result["models"], result["leave_one_out"]):
+        print(f"  {name.split('/')[-1]:44s} cos={row['cosine']:+.3f} "
+              f"norm_ratio={row['norm_ratio']:.3f}")
+    if args.out:
+        print(f"saved {save_variance(result, args.out)}")
 
 
 def hf_variance(args):

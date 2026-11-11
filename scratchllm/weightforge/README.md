@@ -116,6 +116,27 @@ stable (x2: 3.164 english, 1.520 code). The ISO "Edge" models are LoRA merges
 that touch 38.6% of tensors with deltas 5-10x larger; their path is also
 monotone, but every intermediate model is already damaged.
 
+### Same objective, different implementer is still a spectrum
+
+Five public abliterations of the same base, plus heretic, all at nearly the same
+delta magnitude (0.008 - 0.010) and support width:
+
+| model | changed tensors | rel delta | cos to `huihui-v3` | leave-one-out cos |
+|---|---|---|---|---|
+| huihui-ai v3 | 15.9% | 0.0079 | 1.000 | 1.000 |
+| goblinModeMan v3 | 15.9% | 0.0079 | 1.000 | 1.000 |
+| 3MPER0RR | 15.9% | 0.0093 | 0.852 | 0.853 |
+| heretic (surgical) | 9.7% | 0.0082 | 0.306 | 0.363 |
+| Bradarr | 16.9% | 0.0104 | 0.160 | 0.245 |
+| Syidone1 | 16.9% | 0.0098 | 0.062 | 0.080 |
+
+Same objective, same scale, same support width, and the direction agreement still
+spans 0.06 - 0.85. How a recipe is implemented matters as much as what it is for.
+
+`huihui-ai/...-abliterated-v3` and `goblinModeMan/...-abliterated-v3` are the same
+file: identical blob hash, identical norm, cosine 1.000. Corpora have to be
+deduplicated by weight hash, not by repository name; `hf-gram` flags this case.
+
 ### Orthogonal deltas still interfere
 
 Three deltas on the same base, each with a near-zero pairwise cosine:

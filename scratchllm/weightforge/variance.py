@@ -85,11 +85,13 @@ def leave_one_out_from_gram(gram: np.ndarray, rank: int | None = None) -> list[d
         quadratic = float(full @ gram @ full)
         covariance = float(full @ gram[:, index])
         true_norm = float(gram[index, index] ** 0.5)
+        # A zero-length reconstruction has no direction; report 0 rather than NaN
+        # so the "orthogonal basis" case reads as "nothing was recovered".
         results.append({
             "index": index,
             "cosine": covariance / (quadratic ** 0.5 * true_norm)
-            if quadratic > 0 and true_norm else float("nan"),
-            "norm_ratio": quadratic ** 0.5 / true_norm if true_norm else float("nan"),
+            if quadratic > 0 and true_norm else 0.0,
+            "norm_ratio": quadratic ** 0.5 / true_norm if true_norm else 0.0,
             "rank": rank,
         })
     return results
