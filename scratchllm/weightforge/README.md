@@ -155,10 +155,15 @@ A delta is only usable off its endpoints when its magnitude is sibling-scale
 Controlled family published by `gumperto`: five datasets times two LoRA recipes
 of the same base. Deltas are exact (adapters, not merged files).
 
-| recipe | support | rank | within-family cos | leave-one-out cos |
-|---|---|---|---|---|
-| `down-l12-r1` | 1 matrix | 1 per delta | 0.58 - 0.93 (0.71) | 0.75 - 0.95 |
-| `all-full-r32` | 168 matrices | 32 per delta | 0.03 - 0.33 (0.09) | 0.09 - 0.36 |
+| recipe | support | rank per delta | within-family cos | leave-one-out cos | variance in one direction |
+|---|---|---|---|---|---|
+| `down-l12-r1` | 1 matrix | 1 | 0.58 - 0.93 (0.71) | 0.75 - 0.95 | 77% |
+| `all-full-r32` | 168 matrices | 32 | 0.03 - 0.33 (0.09) | 0.09 - 0.36 | 32% |
+
+For the rank-1 recipe a single shared direction explains 77% of the family's
+total delta variance (90% with two directions), and a held-out dataset's delta is
+recovered with cosine 0.75-0.95 from the other four. For the rank-32 recipe the
+spectrum is nearly flat (32/21/18/14/12%) and leave-one-out recovery is poor.
 
 Same data, different recipe: |cos| < 0.001. Different data, same recipe: strongly
 aligned for the rank-1 recipe, barely aligned for the rank-32 recipe.
